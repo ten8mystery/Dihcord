@@ -6,19 +6,45 @@
     <title>Dihcord (Login Enabled)</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Use Inter font -->
+    <!-- Use Inter font and custom scrollbar for better look -->
     <style>
         body { font-family: 'Inter', sans-serif; }
+        .message-content img {
+            max-width: 100%;
+            max-height: 200px;
+            object-fit: contain;
+            border-radius: 8px;
+            margin-top: 4px;
+        }
+        /* Custom Scrollbar Styling (Webkit only, for a cleaner look) */
+        .custom-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #1E1F22; /* Sidebar background */
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #444754; /* Darker scroll handle */
+            border-radius: 4px;
+        }
+        .custom-scroll-chat::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scroll-chat::-webkit-scrollbar-track {
+            background: #2B2D31; /* Chat background */
+        }
+        .custom-scroll-chat::-webkit-scrollbar-thumb {
+            background: #444754;
+            border-radius: 4px;
+        }
     </style>
 </head>
-<body class="bg-gray-800 text-gray-100 h-screen overflow-hidden flex">
+<body class="bg-[#2B2D31] text-gray-100 h-screen overflow-hidden flex">
 
-    <!-- Firebase SDK Imports -->
+    <!-- Firebase SDK Imports (Logic remains the same) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        // Updated Auth imports for login/signup/logout
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        // FIX: Ensure all necessary firestore methods, including getDocs, are imported
         import { getFirestore, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, setLogLevel, setDoc, doc, getDoc, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Global Firebase variables
@@ -26,14 +52,14 @@
         let isAuthReady = false;
         let displayName = ''; 
         let isMediaMode = false;
-        let isUserLoggedIn = false; // New state to manage login UI vs chat UI
+        let isUserLoggedIn = false; 
         
         // DM/Channel State
-        let activeChatId = 'general'; // 'general' or a specific DM roomId (e.g., userA_userB)
+        let activeChatId = 'general'; 
         let activeChatName = '# General Chat';
-        let dmRecipientId = null; // Used for sending DMs
-        let unsubscribeChat = null; // Stores the function to stop the current Firestore listener
-        let dmList = []; // Array to store user IDs of active DMs
+        let dmRecipientId = null; 
+        let unsubscribeChat = null; 
+        let dmList = []; 
 
         // --- Core Firebase Initialization and Auth ---
 
@@ -42,11 +68,13 @@
                 // 1. Get Configs (MANDATORY)
                 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
                 const firebaseConfigString = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
+                
+                if (firebaseConfigString === '{}' || firebaseConfigString === '') {
+                     console.warn("Firebase Config Status: The environment provided an empty or default config string. This will cause the initialization error.");
+                }
 
-                // Set Firestore log level for debugging
                 setLogLevel('error');
                 
-                // Load display name from local storage before auth
                 const storedName = localStorage.getItem('chatDisplayName');
                 if (storedName) {
                     displayName = storedName;
@@ -63,7 +91,7 @@
                 if (Object.keys(firebaseConfig).length === 0) {
                     const loadingState = document.getElementById('loading-state');
                     if (loadingState) {
-                       loadingState.innerHTML = '<span class="text-red-500">Error: Firebase configuration is missing. Cannot start chat.</span>';
+                       loadingState.innerHTML = '<div class="flex items-center space-x-2"><svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg><span class="text-red-500 font-bold">Error: Firebase config is missing.</span></div>';
                     }
                     console.error("Firebase configuration is missing. Cannot initialize Firestore.");
                     return;
@@ -73,8 +101,6 @@
                 db = getFirestore(app);
                 auth = getAuth(app);
                 
-                // Note: The auth-container is no longer 'hidden' by default in the HTML.
-
                 // 3. Handle Authentication State Change
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
@@ -92,7 +118,6 @@
                         
                         console.log("Authenticated. UID:", userId);
                         
-                        // Call listeners directly now that auth is ready.
                         setupRealtimeListener(activeChatId);
                         setupDmListListener(appId); 
                         
@@ -107,7 +132,7 @@
                         document.getElementById('loading-state').classList.add('hidden');
                         document.getElementById('login-form').classList.remove('hidden');
 
-                        // Attempt sign in with token if available (to skip login for authenticated users)
+                        // Attempt sign in with token if available 
                         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
                         if (initialAuthToken) {
                             try {
@@ -118,7 +143,6 @@
                                 document.getElementById('login-form').classList.remove('hidden');
                             }
                         } else {
-                            // No token, show login form immediately
                             document.getElementById('loading-state').classList.add('hidden');
                             document.getElementById('login-form').classList.remove('hidden');
                         }
@@ -131,46 +155,38 @@
             }
         }
         
-        // --- User Profile Management ---
+        // --- User Profile Management (Logic remains the same) ---
 
-        // Helper function to check if the new name is globally unique
         const isDisplayNameAvailable = async (appId, newName, currentUserId) => {
-            // Check if db is initialized before querying
             if (!db) return false; 
             const usersRef = collection(db, `artifacts/${appId}/public/data/users`);
-            // Query for any user profile with the exact newName
             const q = query(usersRef, where('displayName', '==', newName));
             
             try {
                 const querySnapshot = await getDocs(q);
                 
-                // If a document is found...
                 if (!querySnapshot.empty) {
                     const existingUserDoc = querySnapshot.docs[0];
-                    // ...check if the found document belongs to the current user.
                     if (existingUserDoc.id !== currentUserId) {
-                        return false; // Name taken by someone else
+                        return false; 
                     }
                 }
-                return true; // Name is available or belongs to the current user
+                return true; 
             } catch (e) {
                 console.error("Error checking display name availability:", e);
-                // Fail safe: assume not available if database error occurs
                 return false; 
             }
         }
         
         const fetchUserProfile = async (appId, uid) => {
-            if (!db) return; // Guard
+            if (!db) return; 
             const userDocRef = doc(db, `artifacts/${appId}/public/data/users`, uid);
             try {
                 const userDoc = await getDoc(userDocRef); 
                 if (userDoc.exists()) {
                     displayName = userDoc.data().displayName || 'User' + uid.substring(0, 4);
                 } else {
-                    // If no profile, use a default name
                     displayName = 'User' + uid.substring(0, 4);
-                    // And create the profile
                     await setDoc(userDocRef, { 
                         displayName: displayName,
                         createdAt: serverTimestamp(),
@@ -180,16 +196,14 @@
                 localStorage.setItem('chatDisplayName', displayName);
             } catch (e) {
                 console.error("Error fetching/creating user profile:", e);
-                // Fallback name
                 displayName = 'Anon' + uid.substring(0, 4);
             }
         }
 
         const saveUserProfileName = async (appId, uid, newName) => {
-             if (!db) return false; // Guard
+             if (!db) return false; 
              const userDocRef = doc(db, `artifacts/${appId}/public/data/users`, uid);
              try {
-                 // Save the new name, ensuring the displayName field is updated for lookups
                  await setDoc(userDocRef, { displayName: newName, userId: uid }, { merge: true });
                  return true;
              } catch (e) {
@@ -198,7 +212,7 @@
              }
         }
         
-        // --- Login/Sign Up Logic ---
+        // --- Login/Sign Up Logic (Logic remains the same) ---
 
         window.handleAuthAction = async (isSignup) => {
             const emailInput = document.getElementById('auth-email');
@@ -222,16 +236,13 @@
             try {
                 if (isSignup) {
                     await createUserWithEmailAndPassword(auth, email, password);
-                    // The onAuthStateChanged listener will handle the rest (setting profile, switching UI)
                     status.textContent = "Sign Up Successful! Logging you in...";
                 } else {
                     await signInWithEmailAndPassword(auth, email, password);
-                    // The onAuthStateChanged listener will handle the rest
                     status.textContent = "Login Successful! Welcome back!";
                 }
                 status.classList.remove('text-red-500');
                 status.classList.add('text-green-500');
-                // Clear inputs on success
                 emailInput.value = '';
                 passwordInput.value = '';
 
@@ -247,7 +258,6 @@
             try {
                 await signOut(auth);
                 showNotification("Logged out successfully.", 'green');
-                // Hide chat and show login form again
                 document.getElementById('chat-app-container').classList.add('hidden');
                 document.getElementById('auth-container').classList.remove('hidden');
                 document.getElementById('login-form').classList.remove('hidden');
@@ -257,7 +267,7 @@
             }
         }
 
-        // --- Helper Functions ---
+        // --- Helper Functions (Logic remains the same) ---
 
         const isImageUrl = (str) => {
             if (!str) return false;
@@ -266,8 +276,11 @@
             const isImageExtension = /\.(gif|jpe?g|tiff|png|webp|bmp)(\?.*)?$/i.test(str);
             return isUrlFormat && isImageExtension;
         }
+        
+        const getPlaceholderUrl = (text = 'Image Broken') => {
+             return `https://placehold.co/200x150/1f2937/d1d5db?text=${encodeURIComponent(text)}`;
+        }
 
-        // Creates a unique room ID by sorting UIDs
         const getDmRoomId = (otherUserId) => {
             if (!userId || !otherUserId) return null;
             const sortedIds = [userId, otherUserId].sort();
@@ -284,8 +297,7 @@
                 nameInput.value = displayName;
             }
             if (idDisplay && userId) {
-                // IMPORTANT: Show the full ID for users to copy/paste
-                idDisplay.innerHTML = `${displayName || 'Anonymous'} | <span class="text-yellow-400 font-mono text-[10px] sm:text-xs break-all">${userId}</span>`;
+                idDisplay.innerHTML = `<span class="font-semibold text-gray-300">${displayName || 'Anonymous'}</span><span class="text-indigo-400 ml-2 font-mono text-[10px] sm:text-xs break-all truncate w-full block">${userId}</span>`;
             }
             updateInputPlaceholder();
         }
@@ -305,25 +317,22 @@
             
             if (dmList.length === 0) {
                  listContainer.innerHTML = `<p class="text-xs text-gray-500 text-center py-2">No active DMs. Start one below!</p>`;
-                 return;
             }
 
             dmList.forEach(dmRecipient => {
                 const recipientId = dmRecipient.recipientId;
                 const roomId = getDmRoomId(recipientId);
                 const isActive = roomId === activeChatId;
-                // Check if the recipient ID is the current user's, and skip rendering if it is
                 if (recipientId === userId) return; 
 
                 const buttonClass = isActive 
                     ? 'bg-indigo-600/50 text-white font-semibold' 
-                    : 'bg-gray-800/50 text-gray-300 hover:bg-gray-700/50';
+                    : 'text-gray-300 hover:bg-[#383A40] transition-colors';
 
                 const dmButton = document.createElement('button');
-                dmButton.className = `flex items-center w-full p-2 rounded-lg transition-colors ${buttonClass}`;
-                // Using recipient name if available, otherwise defaulting to ID prefix
+                dmButton.className = `flex items-center w-full p-2 rounded-lg ${buttonClass}`;
                 const dmName = dmRecipient.displayName || `DM: ${recipientId.substring(0, 8)}...`;
-                dmButton.onclick = () => switchChat(roomId, dmName, recipientId);
+                dmButton.onclick = () => switchChat(roomId, `DM: ${dmName}`, recipientId);
 
                 dmButton.innerHTML = `
                     <div class="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
@@ -342,25 +351,22 @@
             if (newName.length < 2 || newName.length > 20) {
                 status.textContent = "Name must be 2-20 characters long.";
                 status.classList.remove('hidden', 'text-green-500');
-                status.classList.add('text-red-500');
+                status.classList.add('text-red-500', 'block');
                 setTimeout(() => status.classList.add('hidden'), 3000);
                 return;
             }
             
-            // Sanitize name: remove non-alphanumeric/non-space characters
             newName = newName.replace(/[^\w\s]/gi, '');
             
-            // --- NEW: Check for uniqueness across all users ---
             const isAvailable = await isDisplayNameAvailable(appId, newName, userId);
             
             if (!isAvailable) {
                 status.textContent = "That display name is already taken by another user.";
                 status.classList.remove('hidden', 'text-green-500');
-                status.classList.add('text-red-500');
+                status.classList.add('text-red-500', 'block');
                 setTimeout(() => status.classList.add('hidden'), 3000);
                 return;
             }
-            // --- END NEW CHECK ---
             
             if (await saveUserProfileName(appId, userId, newName)) {
                 localStorage.setItem('chatDisplayName', newName);
@@ -369,11 +375,11 @@
 
                 status.textContent = "Display name updated!";
                 status.classList.remove('hidden', 'text-red-500');
-                status.classList.add('text-green-500');
+                status.classList.add('text-green-500', 'block');
             } else {
                 status.textContent = "Error updating name.";
                 status.classList.remove('hidden', 'text-green-500');
-                status.classList.add('text-red-500');
+                status.classList.add('text-red-500', 'block');
             }
             setTimeout(() => status.classList.add('hidden'), 3000);
         }
@@ -385,12 +391,12 @@
 
             if (isMediaMode) {
                 input.placeholder = "PASTE IMAGE URL (.jpg, .png, .gif) and hit Send...";
-                button.classList.remove('bg-gray-600', 'text-gray-300');
-                button.classList.add('bg-indigo-500', 'text-white', 'ring-2', 'ring-indigo-300');
+                button.classList.remove('text-gray-300', 'hover:bg-[#444754]');
+                button.classList.add('bg-indigo-600', 'text-white', 'hover:bg-indigo-700');
             } else {
                 input.placeholder = `Message ${activeChatName} (Press Enter to send)`;
-                button.classList.remove('bg-indigo-500', 'text-white', 'ring-2', 'ring-indigo-300');
-                button.classList.add('bg-gray-600', 'text-gray-300');
+                button.classList.remove('bg-indigo-600', 'text-white', 'hover:bg-indigo-700');
+                button.classList.add('text-gray-300', 'hover:bg-[#444754]');
             }
         }
 
@@ -400,23 +406,19 @@
             document.getElementById('message-input').focus();
         }
         
-        // --- DM List Management ---
+        // --- DM List Management (Logic remains the same) ---
         
         const setupDmListListener = (appId) => {
-            // HARDENED GUARD: Check if db is ready and user is authenticated
             if (!db || !isAuthReady || !userId) {
                 console.log("DM List Listener skipped: DB or Auth not ready.");
                 return;
             }
 
-            // Path: /artifacts/{appId}/users/{userId}/dm_recipients (Private Collection)
             const path = `artifacts/${appId}/users/${userId}/dm_recipients`; 
             const dmRef = collection(db, path);
             
-            // Query is simpler as the path is already scoped by userId
             const q = query(dmRef, orderBy('lastContact', 'desc')); 
             
-            // Listen to the user's list of people they have DM'd
             onSnapshot(q, (snapshot) => {
                 dmList = [];
                 snapshot.forEach(doc => {
@@ -429,29 +431,25 @@
         }
         
         const saveDmRecipient = async (initiatorId, recipientId, recipientName) => {
-             if (!db) return; // Guard
+             if (!db) return; 
             try {
                 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
                 
-                // 1. Save to INITIATOR's list (Private Collection)
-                // Path: /artifacts/{appId}/users/{initiatorId}/dm_recipients/{recipientId}
                 const initiatorPath = `artifacts/${appId}/users/${initiatorId}/dm_recipients`;
-                const initiatorDocId = recipientId; // Doc ID is the recipient's ID
+                const initiatorDocId = recipientId; 
                 
                 await setDoc(doc(db, initiatorPath, initiatorDocId), { 
                     recipientId: recipientId, 
-                    displayName: recipientName, // Store the name for the UI
+                    displayName: recipientName, 
                     lastContact: serverTimestamp()
                 }, { merge: true });
                 
-                // 2. Save to RECIPIENT's list so it appears in their sidebar too (Private Collection)
-                // Path: /artifacts/{appId}/users/{recipientId}/dm_recipients/{initiatorId}
                 const recipientPath = `artifacts/${appId}/users/${recipientId}/dm_recipients`;
-                const recipientDocId = initiatorId; // Doc ID is the initiator's ID
+                const recipientDocId = initiatorId; 
                 
                  await setDoc(doc(db, recipientPath, recipientDocId), { 
                     recipientId: initiatorId, 
-                    displayName: displayName, // Store the initiator's name
+                    displayName: displayName, 
                     lastContact: serverTimestamp()
                 }, { merge: true });
 
@@ -460,16 +458,15 @@
             }
         }
 
-        // Helper function to find User ID by Display Name
         const getUserIdByDisplayName = async (appId, searchName) => {
-             if (!db) return null; // Guard
+             if (!db) return null; 
             const usersRef = collection(db, `artifacts/${appId}/public/data/users`);
             const q = query(usersRef, where('displayName', '==', searchName));
             
             try {
                 const querySnapshot = await getDocs(q); 
                 if (!querySnapshot.empty) {
-                    return querySnapshot.docs[0].id; // Return the user ID (document ID)
+                    return querySnapshot.docs[0].id; 
                 }
                 return null;
             } catch (e) {
@@ -481,7 +478,7 @@
         window.startDM = async () => {
             const recipientInput = document.getElementById('dm-recipient-input');
             const recipientName = recipientInput.value.trim();
-            recipientInput.value = ''; // Clear input
+            recipientInput.value = ''; 
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
             if (!recipientName) {
@@ -489,7 +486,6 @@
                 return;
             }
             
-            // --- NEW: Look up the User ID from the Display Name ---
             const recipientId = await getUserIdByDisplayName(appId, recipientName);
 
             if (!recipientId) {
@@ -501,46 +497,36 @@
                  showNotification("DM Error: Cannot DM yourself.", 'red');
                 return;
             }
-            // --- END NEW LOOKUP ---
 
             const roomId = getDmRoomId(recipientId);
             
-            // 1. Save recipient to user's DM list (to show in sidebar)
             saveDmRecipient(userId, recipientId, recipientName);
-
-            // 2. Switch to the new DM chat
             switchChat(roomId, `DM: ${recipientName}`, recipientId);
 
             showNotification(`Starting DM with ${recipientName}...`, 'green');
         }
 
         window.switchChat = (newChatId, newChatName, recipient = null) => {
-            // Guard against switching chat if auth is not ready
             if (!isAuthReady || !userId) {
                 showNotification("Authentication not ready. Cannot switch chat.", 'red');
                 return;
             }
 
-            // 1. Unsubscribe from the old listener
             if (unsubscribeChat) {
                 unsubscribeChat();
             }
 
-            // 2. Update state
             activeChatId = newChatId;
             activeChatName = newChatName;
-            dmRecipientId = recipient; // Store the *other* user's ID if this is a DM
+            dmRecipientId = recipient; 
             
-            // 3. Update UI (Header, Placeholder, Sidebar)
             updateChatHeaderUI();
             updateInputPlaceholder();
             updateDmListUI();
             const messageInput = document.getElementById('message-input');
             if (messageInput) messageInput.focus();
             
-            // 4. Set up new listener
             setupRealtimeListener(newChatId); 
-            // Reset chat box visually while waiting for data
             const chatBox = document.getElementById('chat-box');
             if(chatBox) {
                 chatBox.innerHTML = `
@@ -552,28 +538,27 @@
             
             // Update button styles in sidebar
             const generalBtn = document.getElementById('general-channel-button');
+            const activeClass = 'bg-indigo-600/50 text-white font-semibold';
+            const inactiveClass = 'text-gray-300 hover:bg-[#383A40]';
+
             if(generalBtn) {
                 if (newChatId === 'general') {
-                    generalBtn.style.backgroundColor = '#4f46e533';
-                    generalBtn.style.color = '#a5b4fc';
+                    generalBtn.className = `flex items-center w-full p-2 rounded-lg transition-colors ${activeClass} mb-4`;
                 } else {
-                    generalBtn.style.backgroundColor = 'transparent';
-                    generalBtn.style.color = '#ccc';
+                    generalBtn.className = `flex items-center w-full p-2 rounded-lg transition-colors ${inactiveClass} mb-4`;
                 }
             }
         }
 
 
-        // --- Firestore Real-time Listener (Handles both General and DM) ---
+        // --- Firestore Real-time Listener (Logic remains the same) ---
 
         const setupRealtimeListener = (chatId) => {
-             // HARDENED GUARD: Check if db is ready and user is authenticated
             if (!db || !isAuthReady || !userId) {
                  console.log("Firestore Listener skipped: DB or Auth not ready.");
                  return;
             }
             
-            // Unsubscribe from any previous listener if it wasn't cleared by switchChat
             if (unsubscribeChat) {
                 unsubscribeChat();
                 unsubscribeChat = null;
@@ -583,10 +568,8 @@
             let path;
             
             if (chatId === 'general') {
-                // Public Channel Path
                 path = `artifacts/${appId}/public/data/messages`;
             } else {
-                // DM Path (Public for two-user room): /artifacts/{appId}/public/data/dms/{roomId}/messages
                 path = `artifacts/${appId}/public/data/dms/${chatId}/messages`;
             }
 
@@ -599,7 +582,6 @@
                     messages.push({ id: doc.id, ...doc.data() });
                 });
 
-                // Clear the loading state if present
                 const loadingState = document.getElementById('loading-state-chat');
                 if(loadingState) loadingState.remove();
 
@@ -607,15 +589,14 @@
             }, (error) => {
                 console.error("Error listening to Firestore:", error);
                 const chatBox = document.getElementById('chat-box');
-                // *** CRUCIAL: Display the exact error for debugging permission issues ***
                 if(chatBox) {
                     const errorMessage = error.message.includes('permission-denied') 
-                        ? "ERROR: Permission Denied. Your security rules might be too strict. Check your console for details." 
+                        ? "ERROR: Permission Denied. Your security rules might be too strict." 
                         : `ERROR: Failed to load chat. Message: ${error.message}`;
                         
                     chatBox.innerHTML = `
-                        <div class="p-4 text-center text-red-500 bg-red-900/50 rounded-lg border border-red-500">
-                            <strong>Firestore Error:</strong> ${errorMessage}
+                        <div class="p-4 text-center text-red-300 bg-red-900/50 rounded-lg border border-red-500 mx-auto max-w-lg shadow-xl">
+                            <strong class="font-bold">Firestore Error:</strong> ${errorMessage}
                         </div>
                     `;
                 }
@@ -627,319 +608,283 @@
              if (!chatContainer) return;
              
              const notification = document.createElement('div');
-             notification.className = `absolute top-3 right-3 p-3 rounded-lg text-sm shadow-xl z-50 bg-${color}-600 text-white`;
+             notification.className = `absolute top-3 right-3 p-3 rounded-xl text-sm shadow-2xl z-50 bg-${color}-600 text-white`;
              notification.textContent = message;
+             
              chatContainer.appendChild(notification);
-             setTimeout(() => notification.remove(), 4000);
+             
+             setTimeout(() => {
+                 notification.classList.add('opacity-0', 'transition-opacity', 'duration-500');
+                 notification.addEventListener('transitionend', () => notification.remove());
+             }, 3000);
         }
-
-        // --- Send Message Function (Handles Text, Media, General, and DM) ---
-
-        window.sendMessage = async () => {
-             if (!db) {
-                 showNotification("Database not connected. Please wait or reload.", 'red');
-                 return;
-             }
-            const input = document.getElementById('message-input');
-            const content = input.value.trim();
-
-            if (!isAuthReady || !userId) {
-                showNotification("Authentication not ready. Please wait.", 'red');
-                return;
-            }
-
-            if (content) {
-                try {
-                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                    let path;
-
-                    if (activeChatId === 'general') {
-                        path = `artifacts/${appId}/public/data/messages`;
-                    } else {
-                        // DM path
-                        path = `artifacts/${appId}/public/data/dms/${activeChatId}/messages`;
-                    }
-                    
-                    let messageData = {
-                        userId: userId,
-                        displayName: displayName || 'Anonymous',
-                        timestamp: serverTimestamp(),
-                        chatId: activeChatId, 
-                    };
-
-                    // Handle Media Mode
-                    if (isMediaMode && isImageUrl(content)) { 
-                        messageData.type = 'media';
-                        messageData.url = content;
-                        isMediaMode = false;
-                        updateInputPlaceholder();
-                    } else if (isMediaMode && !isImageUrl(content)) {
-                        showNotification("Media Error: Invalid image URL. Enter a valid URL or toggle media mode off.", 'red');
-                        return;
-                    } else {
-                        // Default to text mode
-                        messageData.type = 'text';
-                        messageData.content = content;
-                    }
-
-                    await addDoc(collection(db, path), messageData);
-                    input.value = ''; // Clear input field
-
-                } catch (error) {
-                    console.error("Error sending message:", error);
-                    showNotification('Failed to send message. Check console for details.', 'red');
-                }
-            }
-        }
-
-        // --- UI Rendering ---
 
         const renderMessages = (messages) => {
             const chatBox = document.getElementById('chat-box');
             if (!chatBox) return;
-            
-            // Filter out existing loading state if any
-            const existingError = chatBox.querySelector('.bg-red-900\\/50');
-            if (existingError) {
-                chatBox.innerHTML = '';
-            }
-            
-            // Check if messages is empty after filtering
-            if (messages.length === 0) {
-                chatBox.innerHTML = `
-                    <div class="p-4 text-center text-gray-500">
-                        <svg class="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                        ${activeChatId === 'general' ? 'Start the public conversation!' : 'You are the first one here. Say hello!'}
-                    </div>
-                `;
-                return;
-            }
 
-            chatBox.innerHTML = ''; // Clear messages before re-rendering
+            chatBox.innerHTML = '';
             
             messages.forEach(msg => {
-                const date = msg.timestamp ? new Date(msg.timestamp.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...';
-                
                 const isMine = msg.userId === userId;
-                
-                const displayedSenderName = isMine 
-                    ? (displayName || 'You') 
-                    : (msg.displayName || `${msg.userId.substring(0, 8)}...`); 
+                const messageContainer = document.createElement('div');
+                messageContainer.className = `flex w-full ${isMine ? 'justify-end' : 'justify-start'} mb-3`;
 
-                let messageContentHTML = '';
+                const messageBubble = document.createElement('div');
                 
-                if (msg.type === 'media' && msg.url) {
-                    messageContentHTML = `
-                        <div class="space-y-2">
-                            <a href="${msg.url}" target="_blank" class="text-indigo-300 hover:underline break-all block text-xs">
-                                Click to open full image
-                            </a>
-                            <img src="${msg.url}" 
-                                alt="Embedded media" 
-                                onerror="this.onerror=null;this.src='https://placehold.co/300x150/4f46e5/ffffff?text=Image+Failed+to+Load';"
-                                class="max-w-full sm:max-w-md max-h-64 rounded-lg shadow-lg mt-1 object-cover cursor-pointer transition-opacity"
-                            >
-                        </div>
-                    `;
+                const senderName = msg.displayName || (msg.userId ? `User-${msg.userId.substring(0, 4)}` : 'Unknown');
+
+                messageBubble.className = `
+                    max-w-[85%] sm:max-w-lg p-3 rounded-xl 
+                    ${isMine 
+                        ? 'bg-indigo-600 rounded-br-none text-white shadow-lg' 
+                        : 'bg-gray-700/70 rounded-tl-none text-gray-100 shadow-md'}
+                    
+                `;
+
+                const time = msg.timestamp ? new Date(msg.timestamp.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Sending...';
+
+                // Message Header (Sender Name and Time)
+                const header = document.createElement('div');
+                header.className = `flex items-baseline ${isMine ? 'justify-end' : 'justify-start'} mb-1`;
+                
+                const nameSpan = document.createElement('span');
+                nameSpan.className = `font-bold text-sm ${isMine ? 'text-indigo-200' : 'text-green-400'}`;
+                nameSpan.textContent = senderName;
+                
+                const timeSpan = document.createElement('span');
+                timeSpan.className = 'text-[10px] text-gray-400 ml-2';
+                timeSpan.textContent = time;
+
+                if (isMine) {
+                    header.appendChild(timeSpan);
+                    header.appendChild(nameSpan);
                 } else {
-                    messageContentHTML = `<p class="text-base break-words">${msg.content}</p>`;
+                    header.appendChild(nameSpan);
+                    header.appendChild(timeSpan);
+                }
+                
+                messageBubble.appendChild(header);
+
+                // Message Content (Text or Image)
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'message-content text-sm break-words';
+                
+                if (msg.isMedia) {
+                    const img = document.createElement('img');
+                    img.src = msg.text;
+                    img.alt = "Shared image content";
+                    img.className = 'object-cover rounded-lg mt-1 cursor-pointer transition-transform duration-200 hover:scale-[1.02]';
+                    img.onerror = function() {
+                        this.onerror=null; 
+                        this.src = getPlaceholderUrl('Image Broken');
+                        this.alt = 'Image URL failed to load.';
+                        this.title = 'Image URL failed to load: ' + msg.text;
+                        this.style.width = '200px';
+                        this.style.height = '150px';
+                    };
+                    
+                    img.onclick = () => window.open(msg.text, '_blank'); 
+
+                    contentDiv.appendChild(img);
+                } else {
+                    contentDiv.textContent = msg.text;
                 }
 
-
-                const messageElement = document.createElement('div');
-                messageElement.className = `flex p-2 hover:bg-gray-700/50 transition-colors ${isMine ? 'justify-end' : 'justify-start'}`;
-
-                messageElement.innerHTML = `
-                    <div class="max-w-3/4 rounded-lg px-3 py-2 ${isMine ? 'bg-indigo-600 text-white shadow-lg' : 'bg-gray-700 text-gray-200'}">
-                        <div class="flex items-baseline mb-1">
-                            <span class="font-bold text-sm ${isMine ? 'text-indigo-200' : 'text-blue-400'} mr-2">${displayedSenderName}</span>
-                            <span class="text-xs ${isMine ? 'text-indigo-300' : 'text-gray-400'}">${date}</span>
-                        </div>
-                        ${messageContentHTML}
-                    </div>
-                `;
-                chatBox.appendChild(messageElement);
+                messageBubble.appendChild(contentDiv);
+                messageContainer.appendChild(messageBubble);
+                chatBox.appendChild(messageContainer);
             });
 
-            // Auto-scroll to the bottom
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
-        // --- Event Listeners and Initial Load ---
-        // Changed from window.addEventListener('load') to direct call for robustness
+
+        window.sendMessage = async () => {
+            if (!isAuthReady || !userId || !db) {
+                showNotification("Error: Not authenticated or database not ready.", 'red');
+                return;
+            }
+
+            const input = document.getElementById('message-input');
+            const messageText = input.value.trim();
+
+            if (messageText === '') return;
+
+            input.value = ''; 
+            
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            let path;
+            
+            if (activeChatId === 'general') {
+                path = `artifacts/${appId}/public/data/messages`; 
+            } else {
+                path = `artifacts/${appId}/public/data/dms/${activeChatId}/messages`; 
+            }
+
+            const isMedia = isMediaMode && isImageUrl(messageText);
+
+            const messageData = {
+                text: messageText,
+                userId: userId,
+                displayName: displayName,
+                timestamp: serverTimestamp(),
+                isMedia: isMedia
+            };
+            
+            if (activeChatId !== 'general' && dmRecipientId) {
+                 saveDmRecipient(userId, dmRecipientId, activeChatName.replace('DM: ', ''));
+            }
+
+            try {
+                await addDoc(collection(db, path), messageData);
+                if (isMediaMode) {
+                    isMediaMode = false;
+                    updateInputPlaceholder();
+                }
+                input.focus();
+            } catch (error) {
+                console.error("Error sending message:", error);
+                showNotification(`Send failed: ${error.message}`, 'red');
+                input.value = messageText; 
+            }
+        }
+        
+        // --- Event Listeners and Initial Call ---
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const messageInput = document.getElementById('message-input');
+            if (messageInput) {
+                messageInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault(); 
+                        window.sendMessage();
+                    }
+                });
+            }
+            
+            updateChatHeaderUI();
+        });
+
         initFirebaseAndChat();
-
     </script>
+
+    <!-- UI STRUCTURE -->
     
-    <!-- Authentication Container (Always visible initially, no 'hidden' class) -->
-    <div id="auth-container" class="fixed inset-0 bg-gray-900 flex items-center justify-center z-50">
-        <div id="loading-state" class="text-xl text-indigo-400 animate-pulse">
-            Connecting to Chat Service...
-        </div>
-
-        <div id="login-form" class="hidden bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-sm border border-gray-700 space-y-6">
-            <h2 class="text-3xl font-extrabold text-white text-center">Dihcord Login</h2>
-            <p class="text-gray-400 text-sm text-center">Use a new email/password to sign up, or log in if you already have an account. (Password must be 6+ characters)</p>
-
-            <input 
-                type="email"
-                id="auth-email"
-                placeholder="Email"
-                class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                required
-            >
-            <input 
-                type="password"
-                id="auth-password"
-                placeholder="Password (Min 6 characters)"
-                class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                required
-                onkeydown="if(event.key === 'Enter') { handleAuthAction(false); }"
-            >
-            
-            <p id="auth-status" class="text-center text-sm font-medium hidden"></p>
-
-            <div class="space-y-3 pt-2">
-                <button 
-                    onclick="handleAuthAction(false)"
-                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-lg transition duration-150 ease-in-out shadow-lg"
-                >
-                    Log In
-                </button>
-                <button 
-                    onclick="handleAuthAction(true)"
-                    class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition duration-150 ease-in-out shadow-lg"
-                >
-                    Sign Up
-                </button>
-            </div>
+    <!-- Loading State -->
+    <div id="loading-state" class="absolute inset-0 flex items-center justify-center bg-[#2B2D31] z-50">
+        <div class="text-xl text-indigo-400 animate-pulse flex items-center space-x-3">
+             <svg class="w-6 h-6 animate-spin text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            <span>Loading Chat System...</span>
         </div>
     </div>
 
-    <!-- Main Chat Application Container (Hidden until logged in) -->
-    <div id="chat-app-container" class="flex flex-grow h-full w-full hidden">
-        <!-- Sidebar (Channels/Users) -->
-        <div class="w-20 sm:w-64 bg-gray-900 flex-shrink-0 flex flex-col">
-            <div class="p-3 font-semibold text-lg border-b border-gray-700">
-                <span class="hidden sm:inline">Dihcord</span>
-                <span class="sm:hidden text-indigo-400">DH</span>
+    <!-- Authentication Container (Shown on load or logout) -->
+    <div id="auth-container" class="absolute inset-0 flex items-center justify-center bg-[#2B2D31] z-40">
+        <div id="login-form" class="hidden bg-[#2B2D31] p-8 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] ring-4 ring-indigo-700/50 w-full max-w-sm">
+            <h2 class="text-3xl font-extrabold text-white mb-2 text-center">Welcome to <span class="text-indigo-400">Dihcord</span></h2>
+            <p class="text-sm text-gray-400 mb-6 text-center">Sign in or create an account to start chatting.</p>
+            
+            <input type="email" id="auth-email" placeholder="Email" class="w-full p-3 mb-4 bg-[#1E1F22] border-2 border-[#1E1F22] rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150" required>
+            <input type="password" id="auth-password" placeholder="Password (min 6 chars)" class="w-full p-3 mb-6 bg-[#1E1F22] border-2 border-[#1E1F22] rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150" required>
+            
+            <div id="auth-status" class="text-center text-sm mb-4 hidden font-medium"></div>
+
+            <button onclick="handleAuthAction(false)" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl transition duration-200 shadow-lg hover:shadow-indigo-500/50 mb-3 transform hover:scale-[1.01]">
+                Login
+            </button>
+            <button onclick="handleAuthAction(true)" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-xl transition duration-200 shadow-lg hover:shadow-green-500/50">
+                Sign Up
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Chat App Container (Hidden until authenticated) -->
+    <div id="chat-app-container" class="flex flex-1 hidden">
+
+        <!-- Sidebar (Channels & DMs) -->
+        <div class="w-1/4 sm:w-[260px] bg-[#1E1F22] flex flex-col p-4 overflow-y-auto shadow-2xl custom-scroll flex-shrink-0">
+            
+            <!-- Logo/Title -->
+            <h1 class="text-2xl font-extrabold text-white mb-6 border-b border-gray-700/50 pb-3">
+                <span class="text-indigo-400">Dih</span>cord
+            </h1>
+
+            <!-- Channels -->
+            <h2 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Channels</h2>
+            <button id="general-channel-button" onclick="switchChat('general', '# General Chat')" class="flex items-center w-full p-2 rounded-lg transition-colors bg-indigo-600/50 text-white font-semibold mb-4 hover:bg-indigo-600/70">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h10m-9 4h6m-3-6v4m-3-4h.01M17 16h.01M9 16h.01"></path></svg>
+                <span class="truncate text-sm"># General Chat</span>
+            </button>
+
+            <!-- Direct Messages -->
+            <h2 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Direct Messages</h2>
+            <div id="dm-list-container" class="space-y-1 mb-6 flex-grow">
+                <!-- DM buttons injected here -->
             </div>
             
-            <div class="flex-grow p-3 overflow-y-auto">
+            <!-- Start DM Input -->
+            <div class="mt-auto pt-4 border-t border-gray-700/50">
+                 <h3 class="text-xs font-bold text-gray-400 mb-2">Start DM by Name</h3>
+                <div class="flex">
+                    <input type="text" id="dm-recipient-input" placeholder="Enter user's name" class="flex-grow p-2 text-sm bg-gray-800 border-2 border-gray-700 rounded-l-lg text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500">
+                    <button onclick="startDM()" class="bg-green-600 hover:bg-green-700 text-white p-2 rounded-r-lg text-sm transition-colors font-medium">
+                        DM
+                    </button>
+                </div>
+            </div>
+
+            <!-- User Info and Settings -->
+            <div class="mt-4 pt-4 border-t border-gray-700/50">
+                <div id="user-id-display" class="text-xs text-gray-400 mb-3 flex flex-col break-all font-mono p-2 bg-gray-900/50 rounded-lg shadow-inner"></div>
                 
-                <!-- Channels -->
-                <h2 class="text-xs font-semibold uppercase text-gray-400 mb-2">Channels</h2>
-                <button onclick="switchChat('general', '# General Chat', null)"
-                    class="flex items-center w-full p-2 rounded-lg font-medium mb-2 transition-colors"
-                    id="general-channel-button"
-                    style="background-color: #4f46e533; color: #a5b4fc;"
-                >
-                    <span class="text-xl mr-2">#</span> General Chat
+                <h3 class="text-xs font-bold text-gray-400 mb-2">Set Display Name</h3>
+                <div class="flex mb-2">
+                    <input type="text" id="new-display-name-input" class="flex-grow p-2 text-sm bg-gray-800 border-2 border-gray-700 rounded-l-lg text-white focus:outline-none focus:border-indigo-500" placeholder="Set your name">
+                    <button onclick="setDisplayName()" class="bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-r-lg text-sm transition-colors font-medium">Set</button>
+                </div>
+                <div id="name-status" class="text-center text-xs hidden font-medium"></div>
+
+                <button onclick="handleLogout()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg mt-3 transition duration-200 text-sm transform hover:scale-[1.01] shadow-md">
+                    Logout
                 </button>
-                
-                <!-- DM List -->
-                <h2 class="text-xs font-semibold uppercase text-gray-400 mt-4 mb-2">Direct Messages</h2>
-                <div id="dm-list-container" class="space-y-1">
-                    <p class="text-xs text-gray-500 text-center py-2">Loading DMs...</p>
-                </div>
-
-                <!-- Start DM Input -->
-                <div class="mt-4 pt-2 border-t border-gray-700">
-                    <h3 class="text-xs font-semibold uppercase text-gray-400 mb-2">Start a New DM (By Name)</h3>
-                    <input 
-                        type="text"
-                        id="dm-recipient-input"
-                        placeholder="Enter Display Name"
-                        class="w-full bg-gray-700 text-xs p-1.5 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-1"
-                        onkeydown="if(event.key === 'Enter') { startDM(); }"
-                    >
-                    <button 
-                        onclick="startDM()"
-                        class="w-full bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium py-1.5 rounded-md transition-colors shadow-sm"
-                    >
-                        Start DM
-                    </button>
-                </div>
             </div>
 
-            <!-- Profile / User ID Section -->
-            <div class="p-3 border-t border-gray-700 bg-gray-900">
-                <h2 class="text-xs font-semibold uppercase text-gray-400 mb-2">My Profile</h2>
-                <div class="bg-gray-800 p-2 rounded-lg space-y-2 border border-gray-700">
-                    <input 
-                        type="text"
-                        id="new-display-name-input"
-                        placeholder="Set Unique Name (2-20 chars)"
-                        class="w-full bg-gray-700 text-sm p-1.5 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        onkeydown="if(event.key === 'Enter') { setDisplayName(); }"
-                    >
-                    <button 
-                        onclick="setDisplayName()"
-                        class="w-full bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-medium py-1.5 rounded-md transition-colors shadow-sm"
-                    >
-                        Set Unique Name
-                    </button>
-                    <p id="name-status" class="text-center text-xs hidden font-medium"></p>
-                    <p id="user-id-display" class="text-gray-300 truncate text-xs">
-                        User ID: <span class="text-yellow-400">Loading...</span>
-                    </p>
-                    <button 
-                        onclick="handleLogout()"
-                        class="w-full bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-1.5 rounded-md transition-colors shadow-sm mt-2"
-                    >
-                        Log Out
-                    </button>
-                </div>
-            </div>
         </div>
 
-        <!-- Main Chat Area -->
-        <div class="flex flex-col flex-grow relative">
+        <!-- Chat Area -->
+        <div class="flex-grow flex flex-col relative bg-[#2B2D31]">
+
             <!-- Chat Header -->
-            <div class="p-3 border-b border-gray-700 bg-gray-700 shadow-md">
-                <h1 id="chat-header-name" class="text-xl font-bold"># General Chat</h1>
-                <p id="chat-header-desc" class="text-sm text-gray-400">A public, real-time chat powered by Firestore, now with image embeds!</p>
+            <header class="p-4 bg-[#2B2D31] border-b border-gray-700/50 shadow-lg flex-shrink-0 z-10">
+                <h2 id="chat-header-name" class="text-xl font-bold text-white flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-gray-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"></path><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"></path></svg>
+                    <span class="truncate"># General Chat</span>
+                </h2>
+                <p id="chat-header-desc" class="text-sm text-gray-400 truncate"></p>
+            </header>
+
+            <!-- Message Area -->
+            <div id="chat-box" class="flex-grow p-4 overflow-y-auto space-y-4 custom-scroll-chat">
+                <!-- Messages injected here -->
             </div>
 
-            <!-- Chat Messages -->
-            <div id="chat-box" class="flex-grow overflow-y-auto p-4 space-y-3">
-                <div id="loading-state-chat" class="p-4 text-center text-indigo-400 animate-pulse">
-                        Loading # General Chat messages...
-                </div>
-            </div>
-
-            <!-- Message Input -->
-            <div class="p-4 bg-gray-700">
-                <div class="flex items-center">
-                    <!-- MEDIA BUTTON -->
-                    <button 
-                        onclick="toggleMediaMode()"
-                        id="media-toggle-button"
-                        class="mr-3 p-3 bg-gray-600 hover:bg-gray-500 text-gray-300 rounded-lg transition duration-150 ease-in-out"
-                        title="Toggle Media Mode (Paste Image URL)"
-                    >
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+            <!-- Message Input Area -->
+            <div class="p-4 bg-[#2B2D31] border-t border-gray-700/50 flex-shrink-0 z-10">
+                <div class="flex items-center bg-[#383A40] rounded-xl p-2 shadow-2xl">
+                     <!-- Media Toggle Button -->
+                    <button id="media-toggle-button" onclick="toggleMediaMode()" class="p-2 mr-3 rounded-full transition-colors text-gray-300 hover:bg-[#444754] flex-shrink-0" title="Toggle Media Mode (Paste URL)">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-9-6h.01M10 21h4a2 2 0 002-2v-4a2 2 0 00-2-2h-3l-4 4V5a2 2 0 012-2h2.5L10 21z"></path></svg>
                     </button>
-
-                    <input 
-                        type="text"
-                        id="message-input"
-                        placeholder="Message #General Chat (Press Enter to send)"
-                        class="flex-grow bg-gray-600 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition duration-150"
-                        onkeydown="if(event.key === 'Enter') { sendMessage(); }"
-                    >
-                    <button 
-                        onclick="sendMessage()"
-                        class="ml-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-5 rounded-lg transition duration-150 ease-in-out shadow-lg transform hover:scale-[1.02]"
-                    >
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                    
+                    <input type="text" id="message-input" placeholder="Message # General Chat (Press Enter to send)" class="flex-grow bg-transparent text-white placeholder-gray-400 text-base focus:outline-none py-1" autofocus>
+                    
+                    <button onclick="sendMessage()" class="ml-3 bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-xl transition duration-200 flex-shrink-0 transform hover:scale-[1.05]" title="Send Message">
+                        <svg class="w-5 h-5 transform rotate-90" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 00.183.183l-3 3 7-14zM10 18a1 1 0 011-1h6a1 1 0 100-2h-6a1 1 0 01-1-1v-4a1 1 0 00-2 0v4a3 3 0 003 3z"></path></svg>
                     </button>
                 </div>
             </div>
         </div>
     </div>
-
 </body>
 </html>
