@@ -67,18 +67,21 @@
         #app.theme-forest {
             background-color: var(--color-bg-primary);
         }
-
+        #auth-screen {
+            background-color: var(--color-bg-primary);
+        }
+        
         /* Generic styles using CSS variables */
-        #app .bg-sidebar { background-color: var(--color-bg-primary); }
-        #app .bg-chat { background-color: var(--color-bg-secondary); }
-        #app .text-main { color: var(--color-text-main); }
-        #app .text-secondary { color: var(--color-text-secondary); }
-        #app .border-main { border-color: var(--color-border); }
-        #app .bg-accent { background-color: var(--color-accent); }
-        #app .hover-bg-accent:hover { background-color: var(--color-accent); opacity: 0.9; }
+        .bg-sidebar { background-color: var(--color-bg-primary); }
+        .bg-chat { background-color: var(--color-bg-secondary); }
+        .text-main { color: var(--color-text-main); }
+        .text-secondary { color: var(--color-text-secondary); }
+        .border-main { border-color: var(--color-border); }
+        .bg-accent { background-color: var(--color-accent); }
+        .hover-bg-accent:hover { background-color: var(--color-accent); opacity: 0.9; }
         
         /* --- ENHANCED OUTLINES AND FOCUS STYLING --- */
-        #app input { 
+        input { 
             background-color: var(--color-bg-secondary); 
             color: var(--color-text-main);
             border: 1px solid var(--color-border); /* Explicit default border */
@@ -86,7 +89,7 @@
             transition: all 150ms ease-in-out;
         }
         /* Highlight input border and add a glow ring on focus */
-        #app input:focus {
+        input:focus {
             outline: none;
             border-width: 2px;
             border-color: var(--color-accent) !important; 
@@ -95,7 +98,7 @@
         }
 
         /* Enhanced active user item: Stronger border on the left */
-        #app .user-item-active { 
+        .user-item-active { 
             background-color: color-mix(in srgb, var(--color-accent) 60%, var(--color-bg-primary)); 
             border-left: 5px solid var(--color-accent); 
         }
@@ -143,8 +146,52 @@
     <!-- NEW: Dotted Background Canvas -->
     <canvas id="particle-canvas"></canvas>
 
+    <!-- Authentication Screen (Login/Register) -->
+    <div id="auth-screen" class="w-full max-w-lg shadow-2xl rounded-xl p-8 transition-all duration-500 hidden" style="min-height: 50vh;">
+        <h1 class="text-4xl font-extrabold text-accent mb-6 text-center">Dihcord</h1>
+        
+        <!-- Toggle Buttons -->
+        <div class="flex mb-8 rounded-xl bg-gray-800/50 p-1 shadow-inner">
+            <button id="show-login-btn" class="flex-1 py-3 font-semibold rounded-lg transition duration-200 text-main bg-accent shadow-lg">
+                Login
+            </button>
+            <button id="show-register-btn" class="flex-1 py-3 font-semibold rounded-lg transition duration-200 text-secondary hover:text-main">
+                Register
+            </button>
+        </div>
+
+        <!-- Login Form -->
+        <div id="login-form" class="space-y-4">
+            <h2 class="text-2xl font-bold text-main mb-4 text-center">Welcome Back!</h2>
+            
+            <input type="email" id="login-email" placeholder="Email Address" class="w-full p-4 rounded-lg focus:ring-accent focus:border-accent">
+            <input type="password" id="login-password" placeholder="Password" class="w-full p-4 rounded-lg focus:ring-accent focus:border-accent">
+            
+            <p id="login-error" class="text-red-400 text-sm hidden">Error message</p>
+            
+            <button id="login-btn" class="w-full bg-accent hover-bg-accent text-white font-extrabold py-4 rounded-xl shadow-lg transition duration-150">
+                Log In
+            </button>
+        </div>
+
+        <!-- Register Form (Initially Hidden) -->
+        <div id="register-form" class="space-y-4 hidden">
+            <h2 class="text-2xl font-bold text-main mb-4 text-center">Create Account</h2>
+            
+            <input type="email" id="register-email" placeholder="Email Address" class="w-full p-4 rounded-lg focus:ring-accent focus:border-accent">
+            <input type="password" id="register-password" placeholder="Password (Min 6 Characters)" class="w-full p-4 rounded-lg focus:ring-accent focus:border-accent">
+            
+            <p id="register-error" class="text-red-400 text-sm hidden">Error message</p>
+
+            <button id="register-btn" class="w-full bg-accent hover-bg-accent text-white font-extrabold py-4 rounded-xl shadow-lg transition duration-150">
+                Register
+            </button>
+        </div>
+    </div>
+
+
     <!-- Main App Container - Theme class will be applied here -->
-    <div id="app" class="w-full max-w-5xl h-[85vh] shadow-2xl rounded-xl flex overflow-hidden theme-dark-default border border-main">
+    <div id="app" class="w-full max-w-5xl h-[85vh] shadow-2xl rounded-xl flex overflow-hidden theme-dark-default border border-main" style="display: none;">
         
         <!-- Loading Screen (Initial state) -->
         <div id="loading-screen" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-gray-900/90 text-white transition-opacity duration-300">
@@ -158,8 +205,8 @@
         <!-- Profile Setup/Change Modal (Reused) -->
         <div id="profile-modal" class="hidden absolute inset-0 z-50 flex items-center justify-center bg-gray-900/90 p-4">
             <div class="bg-gray-700 p-8 rounded-xl shadow-2xl w-full max-w-sm border border-main">
-                <h2 class="text-xl font-bold mb-4 text-white" id="profile-modal-title">Set Up Your Profile</h2>
-                <p class="text-gray-300 mb-4" id="profile-modal-text">Please choose a **unique** username to start chatting.</p>
+                <h2 class="text-xl font-bold mb-4 text-white" id="profile-modal-title">Change Your Username</h2>
+                <p class="text-gray-300 mb-4" id="profile-modal-text">Enter a new **unique** username. It will update immediately for everyone.</p>
                 <input type="text" id="username-input" placeholder="Enter your unique username" class="w-full p-3 rounded-lg bg-gray-600 text-white placeholder-gray-400 transition duration-150">
                 <p id="username-error" class="text-red-400 text-sm mt-2 hidden">That username is already taken or invalid.</p>
                 <button id="save-profile-btn" class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-lg shadow-md transition duration-150">
@@ -188,6 +235,7 @@
                         <div>
                             <p class="text-lg font-bold text-main" id="settings-current-username">Loading...</p>
                             <p class="text-xs text-secondary">ID: <span class="font-mono text-xs" id="settings-current-user-id"></span></p>
+                            <p class="text-xs text-secondary">Email: <span class="font-mono text-xs" id="settings-current-user-email"></span></p>
                         </div>
                     </div>
                     
@@ -218,7 +266,7 @@
                 </div>
 
                 <!-- Section: Notifications -->
-                <div class="mb-4">
+                <div class="mb-6 pb-4 border-b border-main">
                     <h3 class="text-xl font-semibold text-accent mb-3">Device Notifications</h3>
                     <p class="text-sm text-secondary mb-3">Allows device-level popups when you receive a new message.</p>
                     <button id="settings-notification-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 rounded-lg text-sm transition duration-150 flex items-center justify-center space-x-2 shadow-md">
@@ -229,6 +277,15 @@
                     </button>
                     <p id="settings-notification-status" class="text-xs text-center mt-1 text-secondary"></p>
                 </div>
+                
+                <!-- Section: Logout -->
+                <button id="logout-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded-lg text-sm transition duration-150 flex items-center justify-center space-x-2 shadow-md">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    <span>Log Out</span>
+                </button>
+
 
             </div>
         </div>
@@ -324,13 +381,14 @@
     <!-- Firebase Imports and Logic -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        // UPDATED IMPORTS for Email/Password Auth
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, where, addDoc, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         setLogLevel('Debug');
 
-        // --- PARTICLE ANIMATION LOGIC (NEW) ---
+        // --- PARTICLE ANIMATION LOGIC ---
         const canvas = document.getElementById('particle-canvas');
         const ctx = canvas.getContext('2d');
         let particles = [];
@@ -377,7 +435,6 @@
         }
 
         function initParticles() {
-            // Re-initialize only if particles array is empty or size changed significantly
             if (particles.length === 0 || particles.length !== particleCount) {
                 particles = [];
                 for (let i = 0; i < particleCount; i++) {
@@ -404,7 +461,7 @@
 
         window.addEventListener('resize', () => {
             resizeCanvas();
-            initParticles(); // Reset particle positions on resize for better coverage
+            initParticles();
         });
         // --- END PARTICLE ANIMATION LOGIC ---
 
@@ -425,7 +482,8 @@
         let firebaseConfig, appId, initialAuthToken;
         firebaseConfig = FALLBACK_FIREBASE_CONFIG;
         appId = FALLBACK_APP_ID;
-        initialAuthToken = null;
+        // initialAuthToken is no longer used for primary sign-in
+        initialAuthToken = null; 
 
         if (typeof __firebase_config !== 'undefined' && __firebase_config) {
             try {
@@ -441,8 +499,9 @@
 
         let app, db, auth;
         let currentUserId = null;
+        let currentUserEmail = null; // NEW: Store user email
         let currentUsername = "Guest";
-        let currentProfilePicture = DEFAULT_PROFILE_PIC; // Profile Picture State
+        let currentProfilePicture = DEFAULT_PROFILE_PIC; 
         let currentTheme = "dark-default";
         let selectedUser = null; 
         
@@ -450,9 +509,9 @@
         let currentRecentDMs = {}; 
         let selectedImageBase64 = null;
         
-        // --- THEME OPTIONS (NEW) ---
+        // --- THEME OPTIONS ---
         const THEMES = [
-            { name: "Dark Default", value: "dark-default", colors: { bg: '#111827', accent: '#3b82f6' } }, // UPDATED
+            { name: "Dark Default", value: "dark-default", colors: { bg: '#111827', accent: '#3b82f6' } },
             { name: "Nebula", value: "theme-nebula", colors: { bg: '#17103a', accent: '#e91e63' } },
             { name: "Forest", value: "theme-forest", colors: { bg: '#f3f4f6', accent: '#059669' } },
         ];
@@ -460,6 +519,7 @@
 
         // DOM Elements
         const appContainer = document.getElementById('app');
+        const authScreen = document.getElementById('auth-screen'); // NEW
         const loadingScreen = document.getElementById('loading-screen');
         const statusMessage = document.getElementById('status-message');
         const profileModal = document.getElementById('profile-modal');
@@ -489,10 +549,27 @@
         const settingsChangeNameBtn = document.getElementById('settings-change-name-btn');
         const settingsCurrentUsername = document.getElementById('settings-current-username');
         const settingsCurrentUserId = document.getElementById('settings-current-user-id');
+        const settingsCurrentUserEmail = document.getElementById('settings-current-user-email'); // NEW
         const themeOptionsDiv = document.getElementById('theme-options');
         const settingsCurrentPic = document.getElementById('settings-current-pic');
         const profilePicInput = document.getElementById('profile-pic-input');
         const picErrorMessage = document.getElementById('pic-error-message');
+        const logoutBtn = document.getElementById('logout-btn'); // NEW
+
+        // --- AUTH SCREEN DOM Elements ---
+        const showLoginBtn = document.getElementById('show-login-btn');
+        const showRegisterBtn = document.getElementById('show-register-btn');
+        const loginForm = document.getElementById('login-form');
+        const registerForm = document.getElementById('register-form');
+        const loginEmail = document.getElementById('login-email');
+        const loginPassword = document.getElementById('login-password');
+        const loginBtn = document.getElementById('login-btn');
+        const loginError = document.getElementById('login-error');
+        const registerEmail = document.getElementById('register-email');
+        const registerPassword = document.getElementById('register-password');
+        const registerBtn = document.getElementById('register-btn');
+        const registerError = document.getElementById('register-error');
+
 
         // --- NOTIFICATION DOM Elements ---
         const settingsNotificationBtn = document.getElementById('settings-notification-btn');
@@ -528,40 +605,49 @@
                     return;
                 }
 
-                statusMessage.textContent = "Initializing app...";
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
-
-                statusMessage.textContent = "Authenticating...";
-
-                try {
-                    if (initialAuthToken) {
-                        await signInWithCustomToken(auth, initialAuthToken);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                } catch (e) {
-                    console.warn("Primary sign-in failed. Attempting anonymous sign-in as fallback.", e);
-                    try {
-                         await signInAnonymously(auth);
-                    } catch (finalError) {
-                        console.error("CRITICAL ERROR: Failed to log in.", finalError);
-                        statusMessage.textContent = "CRITICAL ERROR: Failed to log in. Check console and security rules.";
-                        return;
-                    }
-                }
-
+                
+                // NEW: Use onAuthStateChanged to handle login/logout state
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
+                        // User successfully logged in or registered
                         currentUserId = user.uid;
+                        currentUserEmail = user.email;
+                        hideAuthScreen();
                         statusMessage.textContent = "Authenticated. Checking profile...";
                         await checkAndSetupUserProfile();
                     } else {
-                        console.error("Auth state is null after sign-in attempt.");
-                        statusMessage.textContent = "CRITICAL ERROR: Failed to authenticate user.";
+                        // User logged out or never logged in
+                        currentUserId = null;
+                        currentUserEmail = null;
+                        // Hide main app content and show auth screen
+                        appContainer.style.display = 'none';
+                        hideLoadingScreen();
+                        showAuthScreen();
+                        
+                        // Clear all listeners and UI elements
+                        if (unsubscribeAllUsers) unsubscribeAllUsers();
+                        if (unsubscribeCurrentData) unsubscribeCurrentData();
+                        if (unsubscribeMessages) unsubscribeMessages();
+                        allUsersMap.clear();
+                        userList.innerHTML = `<p class="text-center text-gray-500 p-4">Please log in to see users.</p>`;
+                        chatHeader.innerHTML = `<p class="text-lg font-semibold text-secondary italic">Select a user to start chatting</p>`;
+                        messageInputArea.classList.add('hidden');
+                        messageContainer.innerHTML = '';
                     }
                 });
+                
+                // If an initial token is provided, try to sign in silently (e.g., in the embedded environment)
+                if (initialAuthToken) {
+                    try {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                    } catch (e) {
+                        console.warn("Custom token sign-in failed. User will need to use email/password.", e);
+                        // If custom token fails, onAuthStateChanged will handle showing the auth screen
+                    }
+                }
 
             } catch (error) {
                 console.error("Firebase Initialization Error:", error);
@@ -579,28 +665,169 @@
                 currentRecentDMs = userData.recentDMs || {};
                 currentTheme = userData.theme || 'dark-default';
                 currentProfilePicture = userData.profilePicture || DEFAULT_PROFILE_PIC;
-                
-                currentUserInfo.textContent = `User ID: ${currentUserId}`;
-                sidebarCurrentUsername.textContent = currentUsername;
-                sidebarCurrentPic.src = currentProfilePicture;
-                
-                initTheme(currentTheme); 
-                hideLoadingScreen();
-                startAppListeners();
-                updateNotificationUI();
             } else {
-                // Initial setup, theme defaults to 'dark-default'
-                initTheme(currentTheme);
-                loadingScreen.classList.add('hidden');
-                showProfileModal(false);
+                // NEW: Create profile document after successful email/password registration
+                const randomDigits = Math.floor(Math.random() * 9000) + 1000;
+                const defaultUsername = `User${randomDigits}`;
+                
+                const userDataToSave = {
+                    userId: currentUserId,
+                    username: defaultUsername,
+                    email: currentUserEmail,
+                    createdAt: serverTimestamp(),
+                    lastSeen: serverTimestamp(),
+                    theme: 'dark-default',
+                    profilePicture: DEFAULT_PROFILE_PIC
+                };
+                
+                await setDoc(userDocRef, userDataToSave);
+
+                currentUsername = defaultUsername;
+                currentRecentDMs = {};
+                currentTheme = 'dark-default';
+                currentProfilePicture = DEFAULT_PROFILE_PIC;
+                
+                alertUser(`Welcome! Your temporary username is "${defaultUsername}". Use Settings to change it!`);
+            }
+
+            // Update UI with authenticated user data
+            currentUserInfo.textContent = `User ID: ${currentUserId}`;
+            sidebarCurrentUsername.textContent = currentUsername;
+            sidebarCurrentPic.src = currentProfilePicture;
+            
+            initTheme(currentTheme); 
+            hideLoadingScreen();
+            appContainer.style.display = 'flex';
+            startAppListeners();
+            updateNotificationUI();
+        }
+
+        // --- AUTH UI HANDLERS (NEW) ---
+
+        function showAuthScreen() {
+            authScreen.classList.remove('hidden');
+            // Default to login view
+            showLoginForm(); 
+        }
+
+        function hideAuthScreen() {
+            authScreen.classList.add('hidden');
+        }
+
+        function showLoginForm() {
+            loginForm.classList.remove('hidden');
+            registerForm.classList.add('hidden');
+            showLoginBtn.classList.add('bg-accent', 'text-main', 'shadow-lg');
+            showLoginBtn.classList.remove('text-secondary', 'hover:text-main');
+            showRegisterBtn.classList.remove('bg-accent', 'text-main', 'shadow-lg');
+            showRegisterBtn.classList.add('text-secondary', 'hover:text-main');
+            loginError.classList.add('hidden');
+            registerError.classList.add('hidden');
+        }
+
+        function showRegisterForm() {
+            loginForm.classList.add('hidden');
+            registerForm.classList.remove('hidden');
+            showRegisterBtn.classList.add('bg-accent', 'text-main', 'shadow-lg');
+            showRegisterBtn.classList.remove('text-secondary', 'hover:text-main');
+            showLoginBtn.classList.remove('bg-accent', 'text-main', 'shadow-lg');
+            showLoginBtn.classList.add('text-secondary', 'hover:text-main');
+            loginError.classList.add('hidden');
+            registerError.classList.add('hidden');
+        }
+        
+        // Helper function to show errors on Auth screen
+        function displayAuthError(element, message) {
+            element.textContent = message;
+            element.classList.remove('hidden');
+            
+            setTimeout(() => {
+                element.classList.add('hidden');
+            }, 5000);
+        }
+
+        // --- AUTH ACTIONS (NEW) ---
+
+        async function handleLogin() {
+            const email = loginEmail.value.trim();
+            const password = loginPassword.value.trim();
+            loginError.classList.add('hidden');
+            
+            if (!email || !password) {
+                displayAuthError(loginError, "Please enter both email and password.");
+                return;
+            }
+
+            try {
+                loginBtn.textContent = "Logging In...";
+                await signInWithEmailAndPassword(auth, email, password);
+                // onAuthStateChanged will handle the success flow
+            } catch (error) {
+                console.error("Login Error:", error);
+                let message = "Login failed. Check your email and password.";
+                if (error.code === 'auth/user-not-found') {
+                    message = "No account found with this email.";
+                } else if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+                    message = "Incorrect password or email.";
+                }
+                displayAuthError(loginError, message);
+            } finally {
+                loginBtn.textContent = "Log In";
             }
         }
+
+        async function handleRegistration() {
+            const email = registerEmail.value.trim();
+            const password = registerPassword.value.trim();
+            registerError.classList.add('hidden');
+            
+            if (!email || password.length < 6) {
+                displayAuthError(registerError, "Please enter a valid email and a password of at least 6 characters.");
+                return;
+            }
+
+            try {
+                registerBtn.textContent = "Registering...";
+                await createUserWithEmailAndPassword(auth, email, password);
+                // onAuthStateChanged will handle the success flow and profile creation
+                alertUser("Registration successful! Setting up your profile...");
+            } catch (error) {
+                console.error("Registration Error:", error);
+                let message = "Registration failed.";
+                 if (error.code === 'auth/email-already-in-use') {
+                    message = "This email is already registered.";
+                } else if (error.code === 'auth/invalid-email') {
+                    message = "The email address is not valid.";
+                } else if (error.code === 'auth/weak-password') {
+                    message = "Password is too weak. Must be at least 6 characters.";
+                }
+                displayAuthError(registerError, message);
+            } finally {
+                registerBtn.textContent = "Register";
+            }
+        }
+        
+        async function handleLogout() {
+            try {
+                // Unsubscribe all listeners (handled by onAuthStateChanged cleanup)
+                // Clear UI (handled by onAuthStateChanged cleanup)
+                await signOut(auth);
+                closeSettingsModal();
+                alertUser("You have successfully logged out.");
+            } catch (error) {
+                console.error("Logout Error:", error);
+                alertUser("Failed to log out. Try again.");
+            }
+        }
+
 
         // --- THEME HANDLERS ---
 
         function initTheme(themeName) {
             appContainer.className = appContainer.className.split(' ').filter(c => !c.startsWith('theme-')).join(' ');
             appContainer.classList.add(themeName);
+            authScreen.className = authScreen.className.split(' ').filter(c => !c.startsWith('theme-')).join(' ');
+            authScreen.classList.add(themeName);
             currentTheme = themeName;
         }
 
@@ -646,6 +873,7 @@
         function openSettingsModal() {
             settingsCurrentUsername.textContent = currentUsername;
             settingsCurrentUserId.textContent = currentUserId;
+            settingsCurrentUserEmail.textContent = currentUserEmail; // NEW: Display Email
             settingsCurrentPic.src = currentProfilePicture;
             picErrorMessage.classList.add('hidden');
             profilePicInput.value = null;
@@ -725,15 +953,11 @@
         function showProfileModal(isChange) {
             settingsModal.classList.add('hidden'); 
             usernameError.classList.add('hidden');
-            if (isChange) {
-                profileModalTitle.textContent = "Change Your Username";
-                profileModalText.innerHTML = "Enter a new **unique** username. It will update immediately for everyone.";
-                usernameInput.value = currentUsername;
-            } else {
-                profileModalTitle.textContent = "Set Up Your Profile";
-                profileModalText.innerHTML = "Please choose a **unique** username to start chatting.";
-                usernameInput.value = '';
-            }
+            
+            // This modal is now ONLY for changing the name, not initial setup
+            profileModalTitle.textContent = "Change Your Username";
+            profileModalText.innerHTML = "Enter a new **unique** username. It will update immediately for everyone.";
+            usernameInput.value = currentUsername;
 
             profileModal.classList.remove('hidden');
             usernameInput.focus();
@@ -765,7 +989,8 @@
                 return;
             }
             
-            if (username === currentUsername && profileModalTitle.textContent.includes('Change Your Username')) {
+            // Check if the name is the same and we are trying to change it
+            if (username === currentUsername) {
                 profileModal.classList.add('hidden');
                 openSettingsModal(); 
                 return;
@@ -779,36 +1004,22 @@
             }
 
             try {
-                const isInitialSetup = profileModalTitle.textContent.includes('Set Up Your Profile');
-
-                const userDataToSave = {
-                    userId: currentUserId,
-                    username: username,
-                    createdAt: serverTimestamp(),
-                    lastSeen: serverTimestamp(),
-                    theme: currentTheme,
-                    profilePicture: currentProfilePicture
-                };
-
-                await setDoc(getUserDocRef(currentUserId), userDataToSave, { merge: true });
+                // Update Firestore
+                await updateDoc(getUserDocRef(currentUserId), {
+                    username: username
+                });
 
                 currentUsername = username;
-                currentUserInfo.textContent = `User ID: ${currentUserId}`;
                 sidebarCurrentUsername.textContent = currentUsername; 
                 profileModal.classList.add('hidden');
                 
-                if (isInitialSetup) {
-                    sidebarCurrentPic.src = currentProfilePicture; 
-                    startAppListeners();
-                    updateNotificationUI();
-                } else {
-                    handleSearch(userSearchInput.value.trim()); 
-                    renderUserList();
-                    openSettingsModal(); 
-                }
+                // Re-render affected UI
+                handleSearch(userSearchInput.value.trim()); 
+                renderUserList();
+                openSettingsModal(); 
 
             } catch (error) {
-                console.error("Error setting user profile:", error);
+                console.error("Error updating user profile:", error);
                 alertUser("Failed to save profile. Try again.");
             }
         }
@@ -825,6 +1036,21 @@
             usernameInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') { saveProfile(); }
             });
+            
+            // --- AUTH SCREEN LISTENERS (NEW) ---
+            showLoginBtn.addEventListener('click', showLoginForm);
+            showRegisterBtn.addEventListener('click', showRegisterForm);
+            loginBtn.addEventListener('click', handleLogin);
+            registerBtn.addEventListener('click', handleRegistration);
+            
+            // Allow 'Enter' key for auth forms
+            loginPassword.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') handleLogin();
+            });
+            registerPassword.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') handleRegistration();
+            });
+            
             
             listenToAllUsers();
             listenToCurrentUserData();
@@ -845,9 +1071,11 @@
             // --- SETTINGS LISTENERS ---
             openSettingsBtn.addEventListener('click', openSettingsModal);
             closeSettingsBtn.addEventListener('click', closeSettingsModal);
-            settingsChangeNameBtn.addEventListener('click', () => showProfileModal(true));
+            settingsChangeNameBtn.addEventListener('click', () => showProfileModal(true)); 
             settingsNotificationBtn.addEventListener('click', () => requestNotificationPermission('settings-'));
             profilePicInput.addEventListener('change', handleProfilePicUpload);
+            logoutBtn.addEventListener('click', handleLogout); // NEW
+
             
             userList.addEventListener('click', (e) => {
                 const target = e.target.closest('.remove-user-btn');
@@ -972,7 +1200,8 @@
 
             const reader = new FileReader();
             reader.onload = function(e) {
-                selectedImageBase64 = e.target.result;
+                const base64Data = e.target.result;
+                selectedImageBase64 = base64Data;
                 imagePreview.src = selectedImageBase64;
                 imagePreviewArea.classList.remove('hidden');
                 
@@ -987,6 +1216,7 @@
         let unsubscribeAllUsers = null;
         function listenToAllUsers() {
             if (unsubscribeAllUsers) unsubscribeAllUsers();
+            if (!currentUserId) return;
 
             const usersRef = getUsersCollectionRef();
             unsubscribeAllUsers = onSnapshot(usersRef, (snapshot) => {
@@ -1025,6 +1255,7 @@
         let unsubscribeCurrentData = null;
         function listenToCurrentUserData() {
             if (unsubscribeCurrentData) unsubscribeCurrentData();
+            if (!currentUserId) return;
 
             const userDocRef = getUserDocRef(currentUserId);
             
@@ -1068,7 +1299,7 @@
                 return;
             }
 
-            renderUserList(false, filterTerm); 
+            renderUserList(false, searchTerm); 
 
             let foundNewUser = null;
             
@@ -1234,6 +1465,7 @@
 
         function listenToMessages(otherUserId) {
             if (unsubscribeMessages) unsubscribeMessages();
+            if (!currentUserId) return;
 
             const chatId = getChatDocId(currentUserId, otherUserId);
             const messagesRef = getMessagesCollectionRef(chatId);
