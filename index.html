@@ -173,8 +173,6 @@
         if (!firebaseConfig.apiKey) {
             console.error("CRITICAL ERROR: Firebase API Key is missing.");
             document.getElementById('loading-screen').innerHTML = '<p class="text-red-400">CRITICAL ERROR: Missing Firebase Configuration. Check console for details.</p>';
-            // Removed illegal 'return;' statement here. Execution will be stopped by 
-            // the conditional check around initFirebase() at the bottom of the script.
         }
 
 
@@ -194,20 +192,27 @@
             auth = getAuth(app);
             db = getFirestore(app);
 
-            // 1. Sign In
+            // 1. Sign In: Try custom token, then fall back to anonymous
             try {
-                // Prioritize custom token (Canvas environment)
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
+                    console.log("Signed in with custom token.");
                 } else {
-                    // Fallback to anonymous sign-in (External hosting like Vercel)
-                    console.log("No custom auth token found. Signing in anonymously.");
-                    await signInAnonymously(auth);
+                    // If no token, immediately jump to anonymous sign-in logic
+                    throw new Error("No custom token available."); 
                 }
             } catch (error) {
-                console.error("Firebase Authentication Error:", error);
-                document.getElementById('loading-screen').innerHTML = '<p class="text-red-400">Error logging in. Check console for details.</p>';
-                return;
+                console.warn("Custom token sign-in failed or unavailable. Falling back to anonymous sign-in.", error.message);
+                try {
+                    // Attempt anonymous sign-in
+                    await signInAnonymously(auth);
+                    console.log("Signed in anonymously.");
+                } catch (anonError) {
+                    // If anonymous sign-in also fails, display a critical error
+                    console.error("CRITICAL: Anonymous sign-in also failed.", anonError);
+                    document.getElementById('loading-screen').innerHTML = '<p class="text-red-400">CRITICAL ERROR: Failed to log in with custom or anonymous credentials. Check security rules.</p>';
+                    return;
+                }
             }
 
             // 2. Auth State Listener
@@ -341,7 +346,9 @@
 
         function listenForUsers() {
             const usersCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'users');
-            const q = query(usersCollectionRef, orderBy('lastSeen', 'desc'));
+            // FIX: Removed orderBy() to prevent missing index errors. 
+            // We will sort the users list by lastSeen in the client after fetching.
+            const q = query(usersCollectionRef); 
 
             onSnapshot(q, (snapshot) => {
                 allUsers = [];
@@ -353,6 +360,14 @@
                     }
                 });
                 
+                // Client-side sort: Newest lastSeen first
+                allUsers.sort((a, b) => {
+                    // Check if lastSeen is a Timestamp and convert to milliseconds for reliable sorting
+                    const aTime = a.lastSeen?.toMillis ? a.lastSeen.toMillis() : 0;
+                    const bTime = b.lastSeen?.toMillis ? b.lastSeen.toMillis() : 0;
+                    return bTime - aTime; // Descending sort (newest first)
+                });
+
                 // Get the current search term to re-filter the list
                 const searchTerm = document.getElementById('user-search-input')?.value.toLowerCase() || '';
                 renderUsersList(allUsers, searchTerm);
@@ -469,7 +484,9 @@
             const chatId = generateChatId(currentUserId, currentRecipient.userId);
             const messagesRef = getMessagesCollectionRef(chatId);
 
-            const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(50));
+            // FIX: Removed orderBy() to prevent missing index errors. 
+            // Messages will be limited and sorted by timestamp in the client.
+            const q = query(messagesRef, limit(50));
 
             unsubscribeMessages = onSnapshot(q, (snapshot) => {
                 const messagesDisplay = document.getElementById('messages-display');
@@ -480,9 +497,21 @@
                 if (document.getElementById('chat-placeholder')) {
                     document.getElementById('chat-placeholder').classList.add('hidden');
                 }
+                
+                // Collect and sort messages in memory
+                let messages = [];
+                snapshot.docs.forEach((doc) => {
+                    messages.push(doc.data());
+                });
 
-                snapshot.docs.reverse().forEach((doc) => { // Reverse to show newest at bottom
-                    const message = doc.data();
+                // Sort messages in ascending order by timestamp (oldest first)
+                messages.sort((a, b) => {
+                    const aTime = a.timestamp?.toMillis ? a.timestamp.toMillis() : 0;
+                    const bTime = b.timestamp?.toMillis ? b.timestamp.toMillis() : 0;
+                    return aTime - bTime; 
+                });
+
+                messages.forEach((message) => {
                     const isSelf = message.senderId === currentUserId;
 
                     const messageBubble = document.createElement('div');
@@ -498,6 +527,7 @@
                 });
 
                 messagesDisplay.appendChild(fragment);
+                
             }, (error) => {
                 console.error("Error listening to messages:", error);
             });
