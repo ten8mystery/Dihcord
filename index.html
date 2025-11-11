@@ -41,7 +41,7 @@
             try {
                 // 1. Get Configs (MANDATORY)
                 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+                const firebaseConfigString = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
 
                 // Set Firestore log level for debugging
                 setLogLevel('error');
@@ -51,19 +51,29 @@
                 if (storedName) {
                     displayName = storedName;
                 }
+                
+                let firebaseConfig = {};
+                try {
+                    firebaseConfig = JSON.parse(firebaseConfigString);
+                } catch (e) {
+                    console.error("Failed to parse Firebase configuration string:", e);
+                }
 
                 // 2. Initialize Firebase App
                 if (Object.keys(firebaseConfig).length === 0) {
+                    const loadingState = document.getElementById('loading-state');
+                    if (loadingState) {
+                       loadingState.innerHTML = '<span class="text-red-500">Error: Firebase configuration is missing. Cannot start chat.</span>';
+                    }
                     console.error("Firebase configuration is missing. Cannot initialize Firestore.");
-                    document.getElementById('loading-state').innerHTML = 'Error: Firebase config missing.';
                     return;
                 }
+                
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
                 
-                // Show the Login/Loading container initially
-                document.getElementById('auth-container').classList.remove('hidden');
+                // Note: The auth-container is no longer 'hidden' by default in the HTML.
 
                 // 3. Handle Authentication State Change
                 onAuthStateChanged(auth, async (user) => {
@@ -83,7 +93,6 @@
                         console.log("Authenticated. UID:", userId);
                         
                         // Call listeners directly now that auth is ready.
-                        // The functions themselves contain guards to ensure db/auth are defined.
                         setupRealtimeListener(activeChatId);
                         setupDmListListener(appId); 
                         
@@ -118,7 +127,7 @@
 
             } catch (error) {
                 console.error("Error during Firebase initialization:", error);
-                document.getElementById('loading-state').innerHTML = `Error: ${error.message}`;
+                document.getElementById('loading-state').innerHTML = `<span class="text-red-500">Error: ${error.message}</span>`;
             }
         }
         
@@ -759,12 +768,13 @@
         }
 
         // --- Event Listeners and Initial Load ---
-        window.addEventListener('load', initFirebaseAndChat);
+        // Changed from window.addEventListener('load') to direct call for robustness
+        initFirebaseAndChat();
 
     </script>
     
-    <!-- Authentication Container (Shown before login) -->
-    <div id="auth-container" class="fixed inset-0 bg-gray-900 flex items-center justify-center z-50 hidden">
+    <!-- Authentication Container (Always visible initially, no 'hidden' class) -->
+    <div id="auth-container" class="fixed inset-0 bg-gray-900 flex items-center justify-center z-50">
         <div id="loading-state" class="text-xl text-indigo-400 animate-pulse">
             Connecting to Chat Service...
         </div>
