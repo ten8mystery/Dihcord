@@ -124,7 +124,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, where, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, where, addDoc, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Set Firebase logging level for debugging
@@ -307,7 +307,10 @@
                 const snapshot = await getDocs(usernameQuery);
                 
                 // If the snapshot has results, check if any belong to a different user
-                return snapshot.docs.some(doc => doc.id !== excludeUserId);
+                // This is the core logic: username is taken if ANY returned doc ID does NOT match the excluded (current) user ID.
+                return snapshot.docs.some(doc => {
+                    return doc.id !== excludeUserId;
+                });
             } catch (error) {
                 console.error("Error checking username uniqueness:", error);
                 return true; // Assume taken if check fails
@@ -323,6 +326,13 @@
                 usernameError.classList.remove('hidden');
                 return;
             }
+            
+            // FIX: If the user submits their current username, bypass the check.
+            if (username === currentUsername && profileModalTitle.textContent.includes('Change Your Username')) {
+                profileModal.classList.add('hidden');
+                return;
+            }
+
 
             // Check for uniqueness
             const isTaken = await isUsernameTaken(username, currentUserId);
@@ -333,7 +343,7 @@
             }
 
             try {
-                const isInitialSetup = profileModal.classList.contains('hidden');
+                const isInitialSetup = profileModalTitle.textContent.includes('Set Up Your Profile');
 
                 const userDataToSave = {
                     userId: currentUserId,
@@ -348,8 +358,12 @@
                 currentUserInfo.textContent = `User ID: ${currentUserId}`;
                 profileModal.classList.add('hidden');
                 
-                if (!isInitialSetup) {
+                if (isInitialSetup) {
                     startAppListeners();
+                } else {
+                    // Refresh the user list and search results after name change
+                    handleSearch(userSearchInput.value.trim()); 
+                    renderUserList();
                 }
 
             } catch (error) {
@@ -421,6 +435,10 @@
                     if (userData.userId !== currentUserId) {
                        allUsersMap.set(userData.userId, userData);
                     }
+                    // Handle current user data update in current listener too
+                    if (userData.userId === currentUserId) {
+                        currentUsername = userData.username;
+                    }
                 });
                 
                 // If there is a search term, re-run search after map update
@@ -444,6 +462,7 @@
                     
                     if (currentUsername !== userData.username) {
                         currentUsername = userData.username;
+                        // Update chat header display if a user is selected
                         if (selectedUser) {
                             chatHeader.innerHTML = `<p class="text-lg font-bold text-white">${selectedUser.username}</p><p class="text-xs text-gray-400">ID: ${selectedUser.userId}</p>`;
                         }
