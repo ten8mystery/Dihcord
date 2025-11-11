@@ -570,7 +570,42 @@
         const registerBtn = document.getElementById('register-btn');
         const registerError = document.getElementById('register-error');
 
+// --- NEW: AUTHENTICATION SCREEN SWITCH LOGIC ---
 
+/**
+ * Switches the displayed form between Login and Register,
+ * and updates the toggle button styling.
+ * @param {string} formId 'login' or 'register'
+ */
+function switchAuthForm(formId) {
+    if (formId === 'login') {
+        loginForm.classList.remove('hidden');
+        registerForm.classList.add('hidden');
+        showLoginBtn.classList.add('bg-accent', 'shadow-lg');
+        showLoginBtn.classList.remove('text-secondary', 'hover:text-main');
+        showRegisterBtn.classList.remove('bg-accent', 'shadow-lg');
+        showRegisterBtn.classList.add('text-secondary', 'hover:text-main');
+        loginError.classList.add('hidden'); // Clear any previous errors
+    } else if (formId === 'register') {
+        registerForm.classList.remove('hidden');
+        loginForm.classList.add('hidden');
+        showRegisterBtn.classList.add('bg-accent', 'shadow-lg');
+        showRegisterBtn.classList.remove('text-secondary', 'hover:text-main');
+        showLoginBtn.classList.remove('bg-accent', 'shadow-lg');
+        showLoginBtn.classList.add('text-secondary', 'hover:text-main');
+        registerError.classList.add('hidden'); // Clear any previous errors
+    }
+}
+
+// Initial state: ensure auth screen is visible if user is logged out
+authScreen.classList.remove('hidden');
+appContainer.style.display = 'none';
+
+// Event Listeners for the Switch Buttons
+showLoginBtn.addEventListener('click', () => switchAuthForm('login'));
+showRegisterBtn.addEventListener('click', () => switchAuthForm('register'));
+
+// --- END AUTHENTICATION SCREEN SWITCH LOGIC ---
         // --- NOTIFICATION DOM Elements ---
         const settingsNotificationBtn = document.getElementById('settings-notification-btn');
         const settingsNotificationBtnText = document.getElementById('settings-notification-btn-text');
