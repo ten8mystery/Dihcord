@@ -135,10 +135,18 @@
     // Set Firestore log level for debugging
     setLogLevel('Debug');
 
-    // --- Global Variables (Canvas Environment Provided) ---
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-dihcord-app-id';
-    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+// --- For External Deployment: Replace this with your own Firebase Config ---
+const appId = 'your-external-app-id'; // Use your real App ID or a static placeholder
+const firebaseConfig = {
+  apiKey: "AIzaSyAeN72Y5DfDR60psO_YkS_H-9PF0bu0QBs",
+  authDomain: "dihbackend.firebaseapp.com",
+  projectId: "dihbackend",
+  storageBucket: "dihbackend.firebasestorage.app",
+  messagingSenderId: "136423198603",
+  appId: "1:136423198603:web:953bcd9ee925b6664ce98e",
+  measurementId: "G-PSGVGZYGTD"
+};
+const initialAuthToken = null; // No custom token needed outside this environment
 
     // --- Firebase Initialization ---
     let app, auth, db;
