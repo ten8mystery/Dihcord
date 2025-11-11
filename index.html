@@ -3,145 +3,102 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gemini DM App (Dark Mode)</title>
+    <title>Gemini DM Chat App</title>
+    <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Use Inter font -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #111827; /* Dark background */
-        }
-        /* Custom scrollbar for message area */
-        .message-area::-webkit-scrollbar {
-            width: 6px;
-        }
-        .message-area::-webkit-scrollbar-thumb {
-            background: #4b5563; /* Darker thumb */
-            border-radius: 3px;
-        }
-        .message-area::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        .user-id-code {
-            font-size: 0.65rem; /* Very small text for the long ID */
-            word-break: break-all;
+            /* Dark Mode Background */
+            background-color: #1f2937;
+            color: #f3f4f6;
         }
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
 
-    <!-- Loading Screen -->
-    <div id="loading-screen" class="absolute inset-0 bg-gray-900 flex items-center justify-center z-50">
-        <div class="flex flex-col items-center">
-            <svg class="animate-spin -ml-1 mr-3 h-8 w-8 text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+    <!-- Main App Container -->
+    <div id="app" class="w-full max-w-5xl h-[85vh] bg-gray-800 shadow-2xl rounded-xl flex overflow-hidden">
+        
+        <!-- Loading Screen (Initial state) -->
+        <div id="loading-screen" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-gray-900/90 text-white transition-opacity duration-300">
+            <svg class="animate-spin h-8 w-8 text-indigo-400 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <p class="mt-4 text-gray-400">Connecting to the matrix...</p>
+            <p id="status-message">Connecting to database...</p>
         </div>
-    </div>
 
-    <!-- Main App Container -->
-    <div id="app-container" class="w-full max-w-5xl h-[80vh] bg-gray-800 shadow-2xl rounded-2xl flex overflow-hidden hidden text-gray-100">
+        <!-- Profile Setup Modal -->
+        <div id="profile-modal" class="hidden absolute inset-0 z-50 flex items-center justify-center bg-gray-900/90 p-4">
+            <div class="bg-gray-700 p-8 rounded-xl shadow-2xl w-full max-w-sm">
+                <h2 class="text-xl font-bold mb-4 text-white">Set Up Your Profile</h2>
+                <p class="text-gray-300 mb-4">Please choose a unique username to start chatting.</p>
+                <input type="text" id="username-input" placeholder="Enter your username" class="w-full p-3 rounded-lg bg-gray-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150">
+                <button id="save-profile-btn" class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-lg shadow-md transition duration-150">
+                    Save Profile
+                </button>
+            </div>
+        </div>
 
-        <!-- Sidebar: User List & Search -->
-        <div id="sidebar" class="w-full sm:w-1/3 border-r border-gray-700 flex flex-col transition-all duration-300">
+        <!-- Left Sidebar (User List) -->
+        <div class="w-1/3 border-r border-gray-700 flex flex-col bg-gray-900">
+            <div class="p-4 border-b border-gray-700">
+                <h1 class="text-2xl font-bold text-white">Direct Messages</h1>
+                <p id="current-user-info" class="text-xs text-gray-400 mt-1"></p>
+            </div>
             
-            <!-- Sidebar Header -->
-            <header class="p-4 border-b bg-indigo-700 text-white flex justify-between items-center">
-                <h2 class="text-xl font-bold">Users</h2>
-                <div id="user-profile-info" class="text-sm cursor-pointer hover:bg-indigo-800 p-1 rounded-lg transition-colors" onclick="showCurrentProfileModal()">
-                    <span id="current-username"></span>
-                </div>
-            </header>
-
-            <!-- Search Input -->
-            <div class="p-4 border-b border-gray-700 bg-gray-900">
-                <input type="text" id="user-search-input" class="w-full p-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-gray-200 placeholder-gray-400 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Search users by name...">
+            <!-- User Search Input -->
+            <div class="p-3 border-b border-gray-700">
+                <input type="text" id="user-search-input" placeholder="Search users by name..." class="w-full p-2 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition duration-150 text-sm">
             </div>
 
             <!-- User List -->
-            <div id="users-list" class="flex-grow overflow-y-auto">
-                <!-- Users will be listed here -->
-                <p class="p-4 text-center text-gray-400 text-sm">Loading users...</p>
+            <div id="user-list" class="flex-grow overflow-y-auto custom-scrollbar">
+                <!-- User items will be dynamically inserted here -->
+                <p class="text-center text-gray-500 p-4">Loading users...</p>
             </div>
         </div>
 
-        <!-- Chat Area: Messages and Input -->
-        <div id="chat-area" class="w-full sm:w-2/3 flex flex-col hidden sm:flex">
+        <!-- Right Content (Chat Window) -->
+        <div class="w-2/3 flex flex-col bg-gray-800">
+            <div id="chat-header" class="p-4 border-b border-gray-700 flex items-center justify-between bg-gray-900/50">
+                <p class="text-lg font-semibold text-gray-400 italic">Select a user to start chatting</p>
+            </div>
             
-            <!-- Chat Header -->
-            <header id="chat-header" class="p-4 border-b border-gray-700 bg-gray-700 flex items-center">
-                <button id="back-button" class="sm:hidden text-gray-300 mr-3" onclick="closeChat()">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-                </button>
-                <div id="recipient-info">
-                    <h3 class="text-lg font-semibold text-gray-100">Select a User</h3>
-                    <p class="text-sm text-gray-400">Start a new conversation</p>
-                </div>
-            </header>
-
-            <!-- Message Display -->
-            <div id="messages-display" class="message-area flex-grow p-4 space-y-4 overflow-y-auto flex flex-col-reverse">
-                <p id="chat-placeholder" class="text-center text-gray-500 mt-20">Select a user on the left to start direct messaging.</p>
-                <!-- Messages will be injected here -->
+            <!-- Message Display Area -->
+            <div id="message-container" class="flex-grow overflow-y-auto p-6 space-y-4 custom-scrollbar">
+                <!-- Messages will be dynamically inserted here -->
             </div>
 
-            <!-- Message Input -->
-            <div id="message-input-area" class="p-4 border-t border-gray-700 bg-gray-800 hidden">
-                <form id="message-form" class="flex">
-                    <input type="text" id="message-input" class="flex-grow p-3 bg-gray-700 border border-gray-600 text-gray-100 rounded-l-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Type a message..." required autocomplete="off">
-                    <button type="submit" class="bg-indigo-600 text-white p-3 rounded-r-xl font-semibold hover:bg-indigo-700 transition-colors disabled:bg-indigo-400" disabled id="send-button">
-                        Send
+            <!-- Message Input Area -->
+            <div id="message-input-area" class="p-4 border-t border-gray-700 hidden">
+                <div class="flex items-center space-x-3">
+                    <input type="text" id="message-input" placeholder="Type a message..." class="flex-grow p-3 rounded-full bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150">
+                    <button id="send-button" class="bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-full shadow-lg transition duration-150">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7" />
+                        </svg>
                     </button>
-                </form>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Modals (Hidden by default) -->
-
-    <!-- 1. Profile Setup Modal -->
-    <div id="profile-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 z-50 flex items-center justify-center hidden">
-        <div class="bg-gray-800 p-8 rounded-xl shadow-2xl max-w-md w-full text-gray-100">
-            <h2 class="text-2xl font-bold text-gray-100 mb-4">Set Up Your Profile</h2>
-            <p class="text-gray-400 mb-6">Please choose a username. This will be visible to others.</p>
-            <form id="profile-form">
-                <input type="text" id="username-input" class="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 mb-4 text-gray-100" placeholder="Enter your username (e.g., JaneDoe123)" required maxlength="20">
-                <button type="submit" id="save-profile-button" class="w-full bg-indigo-600 text-white p-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors">
-                    Save Profile
-                </button>
-                <p id="profile-error" class="text-red-400 text-sm mt-2 hidden"></p>
-            </form>
-            <p class="text-xs text-gray-500 mt-4">Your User ID: <span id="auth-uid" class="user-id-code text-gray-400"></span></p>
-        </div>
-    </div>
-
-    <!-- 2. Current Profile Display Modal (for visibility) -->
-    <div id="current-profile-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 z-50 flex items-center justify-center hidden" onclick="closeCurrentProfileModal(event)">
-        <div class="bg-gray-800 p-6 rounded-xl shadow-2xl max-w-sm w-full text-gray-100" onclick="event.stopPropagation()">
-            <h2 class="text-xl font-bold text-gray-100 mb-3">Your Profile</h2>
-            <p class="text-gray-300 mb-2"><strong>Username:</strong> <span id="modal-current-username" class="font-medium text-indigo-400"></span></p>
-            <p class="text-gray-300 mb-4 text-sm"><strong>Your User ID:</strong> <code class="break-all user-id-code text-xs text-gray-400" id="modal-auth-uid"></code></p>
-            <button onclick="closeCurrentProfileModal()" class="w-full bg-gray-700 text-gray-100 p-2 rounded-lg font-semibold hover:bg-gray-600 transition-colors">
-                Close
-            </button>
-        </div>
-    </div>
-
+    <!-- Firebase Imports -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, addDoc, setDoc, onSnapshot, collection, query, where, orderBy, limit, serverTimestamp, setLogLevel, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, query, where, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Global variables provided by the environment (may be undefined on external hosting)
-        const envAppId = typeof __app_id !== 'undefined' ? __app_id : null;
-        const envFirebaseConfig = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        // Set Firebase logging level for debugging
+        setLogLevel('Debug');
 
-        // --- Configuration Logic for Robust External Hosting ---
-
-        // 1. Define the Standard Fallback Configuration (Must be hardcoded for Vercel/external hosting)
+        // --- GLOBAL VARIABLES (Provided by Environment or Fallback) ---
+        // Vercel/External Hosting Fallback Config
         const FALLBACK_FIREBASE_CONFIG = {
             apiKey: "AIzaSyAeN72Y5DfDR60psO_YkS_H-9PF0bu0QBs",
             authDomain: "dihbackend.firebaseapp.com",
@@ -151,435 +108,411 @@
             appId: "1:136423198603:web:953bcd9ee925b6664ce98e",
             measurementId: "G-PSGVGZYGTD"
         };
-        
-        // Use environment's appId or a static ID for external deployment pathing
-        const appId = envAppId || 'external-dm-app-id'; 
-        let firebaseConfig = FALLBACK_FIREBASE_CONFIG; // Start with the fallback
+        const FALLBACK_APP_ID = 'external-dm-app-id';
 
-        try {
-            // 2. ONLY overwrite with environment config if it exists and is valid JSON
-            if (envFirebaseConfig) {
-                const parsedConfig = JSON.parse(envFirebaseConfig);
-                if (parsedConfig && parsedConfig.apiKey) {
-                    firebaseConfig = parsedConfig;
-                    console.log("Using environment Firebase config.");
-                }
+        let firebaseConfig, appId, initialAuthToken;
+
+        // Check for Canvas environment variables
+        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+            try {
+                firebaseConfig = JSON.parse(__firebase_config);
+                appId = typeof __app_id !== 'undefined' ? __app_id : FALLBACK_APP_ID;
+                initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+            } catch (e) {
+                console.error("Error parsing __firebase_config. Using fallback.", e);
+                firebaseConfig = FALLBACK_FIREBASE_CONFIG;
+                appId = FALLBACK_APP_ID;
+                initialAuthToken = null;
             }
-        } catch (e) {
-            console.warn("Error parsing environment config. Using fallback configuration.", e);
-            // firebaseConfig remains FALLBACK_FIREBASE_CONFIG
+        } else {
+            console.warn("Canvas environment variables not found. Using fallback configuration.");
+            firebaseConfig = FALLBACK_FIREBASE_CONFIG;
+            appId = FALLBACK_APP_ID;
+            initialAuthToken = null;
         }
-        
-        if (!firebaseConfig.apiKey) {
-            console.error("CRITICAL ERROR: Firebase API Key is missing.");
-            document.getElementById('loading-screen').innerHTML = '<p class="text-red-400">CRITICAL ERROR: Missing Firebase Configuration. Check console for details.</p>';
-        }
-
 
         let app, db, auth;
         let currentUserId = null;
-        let currentUsername = null;
-        let currentRecipient = null; 
-        let unsubscribeMessages = null;
-        let allUsers = []; 
+        let currentUsername = "Guest";
+        let selectedUser = null; // The user object of the person currently being chatted with
 
-        // --- Firebase Initialization and Auth ---
+        // DOM Elements
+        const loadingScreen = document.getElementById('loading-screen');
+        const statusMessage = document.getElementById('status-message');
+        const profileModal = document.getElementById('profile-modal');
+        const usernameInput = document.getElementById('username-input');
+        const saveProfileBtn = document.getElementById('save-profile-btn');
+        const userList = document.getElementById('user-list');
+        const chatHeader = document.getElementById('chat-header');
+        const messageContainer = document.getElementById('message-container');
+        const messageInputArea = document.getElementById('message-input-area');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const currentUserInfo = document.getElementById('current-user-info');
+        const userSearchInput = document.getElementById('user-search-input');
 
+
+        // --- FIRESTORE PATHS ---
+        // All data is public for easy real-time collaboration and discovery.
+        const getUserDocRef = (userId) => doc(db, 'artifacts', appId, 'public', 'data', 'users', userId);
+        const getUsersCollectionRef = () => collection(db, 'artifacts', appId, 'public', 'data', 'users');
+        
+        // Chat ID is ordered alphabetically by the two user IDs (user1Id_user2Id)
+        const getChatDocId = (user1Id, user2Id) => {
+            const sortedIds = [user1Id, user2Id].sort();
+            return sortedIds.join('_');
+        };
+        const getMessagesCollectionRef = (chatId) => collection(db, 'artifacts', appId, 'public', 'data', 'chats', chatId, 'messages');
+
+        // --- AUTH & INITIALIZATION ---
+
+        /**
+         * Initializes Firebase and authenticates the user.
+         */
         async function initFirebase() {
-            setLogLevel('Debug');
-            
-            app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
-
-            // 1. Sign In: Try custom token, then fall back to anonymous
             try {
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                    console.log("Signed in with custom token.");
-                } else {
-                    // If no token, immediately jump to anonymous sign-in logic
-                    throw new Error("No custom token available."); 
-                }
-            } catch (error) {
-                console.warn("Custom token sign-in failed or unavailable. Falling back to anonymous sign-in.", error.message);
-                try {
-                    // Attempt anonymous sign-in
-                    await signInAnonymously(auth);
-                    console.log("Signed in anonymously.");
-                } catch (anonError) {
-                    // If anonymous sign-in also fails, display a critical error
-                    console.error("CRITICAL: Anonymous sign-in also failed.", anonError);
-                    document.getElementById('loading-screen').innerHTML = '<p class="text-red-400">CRITICAL ERROR: Failed to log in with custom or anonymous credentials. Check security rules.</p>';
+                if (!firebaseConfig || !firebaseConfig.apiKey) {
+                    console.error("CRITICAL ERROR: Firebase config is invalid or missing API key.");
+                    statusMessage.textContent = "CRITICAL ERROR: Failed to load Firebase configuration.";
                     return;
                 }
-            }
 
-            // 2. Auth State Listener
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    currentUserId = user.uid;
-                    document.getElementById('auth-uid').textContent = user.uid;
-                    document.getElementById('modal-auth-uid').textContent = user.uid;
-                    loadUserProfile(user.uid);
+                statusMessage.textContent = "Initializing app...";
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                statusMessage.textContent = "Authenticating...";
+
+                // Attempt custom sign-in first (for Canvas environment)
+                if (initialAuthToken) {
+                    try {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                    } catch (e) {
+                        console.warn("Custom token sign-in failed, falling back to anonymous.", e);
+                        await signInAnonymously(auth);
+                    }
                 } else {
-                    console.log("User signed out.");
-                    currentUserId = null;
+                    // Always sign in anonymously if no token is available (for external hosting)
+                    await signInAnonymously(auth);
                 }
-            });
-        }
 
-        // --- User Profile Management ---
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        currentUserId = user.uid;
+                        statusMessage.textContent = "Authenticated. Checking profile...";
+                        await checkAndSetupUserProfile();
+                    } else {
+                        console.error("CRITICAL ERROR: Failed to log in with custom or anonymous credentials.");
+                        statusMessage.textContent = "CRITICAL ERROR: Failed to log in. Check security rules.";
+                        loadingScreen.style.opacity = '1';
+                        loadingScreen.classList.remove('hidden');
+                    }
+                });
 
-        function getUserProfileDocRef(userId) {
-            // Uses the robustly defined 'appId'
-            return doc(db, 'artifacts', appId, 'public', 'data', 'users', userId);
-        }
-
-        async function loadUserProfile(userId) {
-            try {
-                const userDocRef = getUserProfileDocRef(userId);
-                const userDoc = await getDoc(userDocRef);
-
-                if (userDoc.exists() && userDoc.data().username) {
-                    currentUsername = userDoc.data().username;
-                    document.getElementById('current-username').textContent = currentUsername;
-                    document.getElementById('modal-current-username').textContent = currentUsername;
-                    // Start main app flow
-                    document.getElementById('loading-screen').classList.add('hidden');
-                    document.getElementById('app-container').classList.remove('hidden');
-                    startAppListeners();
-                } else {
-                    // Profile does not exist, show setup modal
-                    document.getElementById('loading-screen').classList.add('hidden');
-                    showProfileModal();
-                }
             } catch (error) {
-                console.error("Error loading user profile:", error);
+                console.error("Firebase Initialization Error:", error);
+                statusMessage.textContent = "CRITICAL ERROR: Firebase failed to initialize.";
             }
         }
 
-        document.getElementById('profile-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const inputElement = document.getElementById('username-input');
-            const username = inputElement.value.trim();
-            const errorElement = document.getElementById('profile-error');
+        /**
+         * Checks if the user has a profile (username) and prompts setup if necessary.
+         */
+        async function checkAndSetupUserProfile() {
+            const userDocRef = getUserDocRef(currentUserId);
+            const userDoc = await getDoc(userDocRef);
 
-            if (!username) {
-                errorElement.textContent = "Username cannot be empty.";
-                errorElement.classList.remove('hidden');
+            if (userDoc.exists()) {
+                const userData = userDoc.data();
+                currentUsername = userData.username;
+                console.log(`User logged in as: ${currentUsername} (${currentUserId})`);
+                currentUserInfo.textContent = `User ID: ${currentUserId}`;
+                
+                // Hide loading screen and start main app functionality
+                hideLoadingScreen();
+                startAppListeners();
+            } else {
+                // Show profile setup modal
+                loadingScreen.classList.add('hidden');
+                profileModal.classList.remove('hidden');
+                
+                saveProfileBtn.addEventListener('click', saveProfile, { once: true });
+                usernameInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        saveProfile();
+                    }
+                }, { once: true });
+            }
+        }
+
+        /**
+         * Saves the user's chosen username to Firestore.
+         */
+        async function saveProfile() {
+            const username = usernameInput.value.trim();
+            if (username.length < 3) {
+                alertUser("Username must be at least 3 characters long.");
                 return;
             }
-            errorElement.classList.add('hidden');
-            document.getElementById('save-profile-button').disabled = true;
 
             try {
-                // Check if username is already taken (simple query check)
-                const q = query(
-                    collection(db, 'artifacts', appId, 'public', 'data', 'users'),
-                    where('username', '==', username),
-                    limit(1)
-                );
-                const snapshot = await getDocs(q);
-
-                if (!snapshot.empty && snapshot.docs[0].id !== currentUserId) {
-                    errorElement.textContent = `Username "${username}" is already taken. Please choose another.`;
-                    errorElement.classList.remove('hidden');
-                    document.getElementById('save-profile-button').disabled = false;
-                    return;
-                }
-
-                // Save profile
-                const userDocRef = getUserProfileDocRef(currentUserId);
-                await setDoc(userDocRef, {
+                // Save user data (This uses setDoc which creates if not exists)
+                await setDoc(getUserDocRef(currentUserId), {
                     userId: currentUserId,
                     username: username,
-                    lastSeen: serverTimestamp(),
+                    createdAt: serverTimestamp(),
+                    lastSeen: serverTimestamp()
                 });
-
-                // Success
-                loadUserProfile(currentUserId);
-                closeProfileModal();
+                
+                currentUsername = username;
+                currentUserInfo.textContent = `User ID: ${currentUserId}`;
+                profileModal.classList.add('hidden');
+                
+                // Start main app functionality
+                startAppListeners();
 
             } catch (error) {
-                console.error("Error saving profile:", error);
-                errorElement.textContent = "Failed to save profile. Try again.";
-                errorElement.classList.remove('hidden');
-            } finally {
-                document.getElementById('save-profile-button').disabled = false;
-            }
-        });
-
-        function showProfileModal() {
-            document.getElementById('profile-modal').classList.remove('hidden');
-            document.getElementById('profile-modal').style.pointerEvents = 'auto'; 
-        }
-
-        function closeProfileModal() {
-            document.getElementById('profile-modal').classList.add('hidden');
-        }
-        
-        function showCurrentProfileModal() {
-             document.getElementById('current-profile-modal').classList.remove('hidden');
-        }
-
-        function closeCurrentProfileModal(event) {
-            // Close only if click is on backdrop or close button
-            if (!event || event.target.id === 'current-profile-modal') {
-                document.getElementById('current-profile-modal').classList.add('hidden');
+                console.error("Error setting user profile:", error);
+                alertUser("Failed to save profile. Try again.");
+                saveProfileBtn.addEventListener('click', saveProfile, { once: true }); // Re-enable click listener
             }
         }
-        document.getElementById('user-profile-info').onclick = showCurrentProfileModal;
 
+        // --- MAIN APP FUNCTIONALITY ---
 
-        // --- Main App Logic (Listeners and Search) ---
+        function hideLoadingScreen() {
+            loadingScreen.style.opacity = '0';
+            setTimeout(() => loadingScreen.classList.add('hidden'), 300);
+        }
 
         function startAppListeners() {
-            listenForUsers();
-            document.getElementById('user-search-input').addEventListener('input', handleUserSearch);
-        }
-        
-        function handleUserSearch(e) {
-            const searchTerm = e.target.value.toLowerCase();
-            renderUsersList(allUsers, searchTerm);
-        }
-
-        function listenForUsers() {
-            const usersCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'users');
-            // FIX: Removed orderBy() to prevent missing index errors. 
-            // We will sort the users list by lastSeen in the client after fetching.
-            const q = query(usersCollectionRef); 
-
-            onSnapshot(q, (snapshot) => {
-                allUsers = [];
-                snapshot.forEach((doc) => {
-                    const userData = doc.data();
-                    // Store all users except self
-                    if (userData.userId !== currentUserId) {
-                        allUsers.push(userData);
-                    }
-                });
-                
-                // Client-side sort: Newest lastSeen first
-                allUsers.sort((a, b) => {
-                    // Check if lastSeen is a Timestamp and convert to milliseconds for reliable sorting
-                    const aTime = a.lastSeen?.toMillis ? a.lastSeen.toMillis() : 0;
-                    const bTime = b.lastSeen?.toMillis ? b.lastSeen.toMillis() : 0;
-                    return bTime - aTime; // Descending sort (newest first)
-                });
-
-                // Get the current search term to re-filter the list
-                const searchTerm = document.getElementById('user-search-input')?.value.toLowerCase() || '';
-                renderUsersList(allUsers, searchTerm);
-                
-            }, (error) => {
-                console.error("Error listening to users:", error);
-            });
-        }
-        
-        function renderUsersList(users, searchTerm = '') {
-            const usersListElement = document.getElementById('users-list');
-            usersListElement.innerHTML = '';
+            // 1. Listen for user list updates
+            listenToUserList();
             
-            const filteredUsers = users.filter(userData => {
-                return userData.username.toLowerCase().includes(searchTerm);
+            // 2. Add search functionality
+            userSearchInput.addEventListener('input', () => {
+                const searchTerm = userSearchInput.value.toLowerCase();
+                // We re-render the list based on the full usersArray (handled inside listenToUserList)
+                renderUserList(usersArray, searchTerm); 
             });
-            
-            if (filteredUsers.length === 0 && searchTerm === '') {
-                usersListElement.innerHTML = '<p class="p-4 text-center text-gray-500 text-sm">No other users online yet.</p>';
-                return;
-            } else if (filteredUsers.length === 0 && searchTerm !== '') {
-                usersListElement.innerHTML = `<p class="p-4 text-center text-gray-500 text-sm">No users found matching "${searchTerm}".</p>`;
-                return;
-            }
 
-            filteredUsers.forEach((userData) => {
-                const userItem = document.createElement('div');
-                // Updated class names for Dark Mode
-                userItem.className = 'user-item p-4 border-b border-gray-700 cursor-pointer hover:bg-indigo-900 transition-colors flex justify-between items-center';
-                userItem.setAttribute('data-user-id', userData.userId);
-                userItem.setAttribute('data-username', userData.username);
-                userItem.innerHTML = `
-                    <div>
-                        <p class="font-semibold text-gray-100">${userData.username}</p>
-                        <p class="user-id-code text-indigo-400 mt-1">${userData.userId}</p>
-                    </div>
-                `;
-                userItem.onclick = () => selectRecipient(userData);
-                usersListElement.appendChild(userItem);
-            });
-            
-            // Highlight the currently selected recipient
-            if (currentRecipient) {
-                document.querySelectorAll('.user-item').forEach(item => {
-                    if (item.getAttribute('data-user-id') === currentRecipient.userId) {
-                        // Dark mode highlight classes
-                        item.classList.add('bg-indigo-800', 'hover:bg-indigo-800', 'border-indigo-400', 'border-l-4');
-                    } else {
-                        item.classList.remove('bg-indigo-800', 'hover:bg-indigo-800', 'border-indigo-400', 'border-l-4');
-                    }
-                });
-            }
-        }
-
-
-        // --- Chat Window Logic ---
-
-        function generateChatId(id1, id2) {
-            // Create a consistent chat ID by sorting the two user IDs
-            return id1 < id2 ? `${id1}_${id2}` : `${id2}_${id1}`;
-        }
-
-        function getMessagesCollectionRef(chatId) {
-            return collection(db, 'artifacts', appId, 'public', 'data', 'chats', chatId, 'messages');
-        }
-
-        function selectRecipient(recipient) {
-            currentRecipient = recipient;
-
-            // Update header with full User ID
-            document.getElementById('recipient-info').innerHTML = `
-                <h3 class="text-lg font-semibold text-gray-100">${recipient.username}</h3>
-                <code class="user-id-code text-sm text-gray-400">${recipient.userId}</code>
-            `;
-            document.getElementById('chat-placeholder').classList.add('hidden');
-            document.getElementById('message-input-area').classList.remove('hidden');
-            document.getElementById('send-button').disabled = false;
-
-            // Mobile view handling
-            document.getElementById('sidebar').classList.add('hidden');
-            document.getElementById('chat-area').classList.remove('hidden');
-            document.getElementById('chat-area').classList.add('flex'); // Ensure it's visible as flex column
-
-            // Highlight the selected user
-            renderUsersList(allUsers, document.getElementById('user-search-input').value.toLowerCase());
-
-            listenForMessages();
-        }
-
-        function closeChat() {
-            // Only for small screens
-            if (window.innerWidth < 640) {
-                document.getElementById('chat-area').classList.add('hidden');
-                document.getElementById('sidebar').classList.remove('hidden');
-            }
-        }
-        window.addEventListener('resize', () => {
-             // If window resized to desktop size, show both
-            if (window.innerWidth >= 640) {
-                document.getElementById('sidebar').classList.remove('hidden');
-                document.getElementById('chat-area').classList.remove('hidden');
-                document.getElementById('chat-area').classList.add('flex');
-            }
-        });
-
-
-        function listenForMessages() {
-            if (!currentRecipient || !currentUserId) return;
-
-            if (unsubscribeMessages) {
-                unsubscribeMessages(); // Stop listening to the previous chat
-            }
-
-            const chatId = generateChatId(currentUserId, currentRecipient.userId);
-            const messagesRef = getMessagesCollectionRef(chatId);
-
-            // FIX: Removed orderBy() to prevent missing index errors. 
-            // Messages will be limited and sorted by timestamp in the client.
-            const q = query(messagesRef, limit(50));
-
-            unsubscribeMessages = onSnapshot(q, (snapshot) => {
-                const messagesDisplay = document.getElementById('messages-display');
-                const fragment = document.createDocumentFragment();
-
-                // Clear current messages
-                messagesDisplay.innerHTML = '';
-                if (document.getElementById('chat-placeholder')) {
-                    document.getElementById('chat-placeholder').classList.add('hidden');
+            // 3. Add send message listener
+            sendButton.addEventListener('click', sendMessage);
+            messageInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    sendMessage();
                 }
+            });
+        }
+
+        let usersArray = [];
+        let unsubscribeUserList = null;
+
+        /**
+         * Listens to real-time updates for all users.
+         */
+        function listenToUserList() {
+            if (unsubscribeUserList) unsubscribeUserList();
+
+            const usersRef = getUsersCollectionRef();
+            // NOTE: We don't use orderBy here to prevent required index errors.
+            const usersQuery = query(usersRef);
+
+            unsubscribeUserList = onSnapshot(usersQuery, (snapshot) => {
+                usersArray = snapshot.docs.map(doc => doc.data()).filter(user => user.userId !== currentUserId);
                 
-                // Collect and sort messages in memory
-                let messages = [];
-                snapshot.docs.forEach((doc) => {
-                    messages.push(doc.data());
-                });
+                // Sort by username client-side
+                usersArray.sort((a, b) => a.username.localeCompare(b.username));
 
-                // Sort messages in ascending order by timestamp (oldest first)
-                messages.sort((a, b) => {
-                    const aTime = a.timestamp?.toMillis ? a.timestamp.toMillis() : 0;
-                    const bTime = b.timestamp?.toMillis ? b.timestamp.toMillis() : 0;
-                    return aTime - bTime; 
-                });
+                // Re-render the list with the current search term
+                const searchTerm = userSearchInput.value.toLowerCase();
+                renderUserList(usersArray, searchTerm);
+            }, (error) => {
+                console.error("Error listening to user list:", error);
+                userList.innerHTML = `<p class="text-center text-red-400 p-4">Error loading users.</p>`;
+            });
+        }
+        
+        /**
+         * Renders the user list based on the current search term.
+         * @param {Array} users The full array of user objects.
+         * @param {string} searchTerm The current search term.
+         */
+        function renderUserList(users, searchTerm) {
+            userList.innerHTML = '';
+            
+            const filteredUsers = users.filter(user => 
+                user.username.toLowerCase().includes(searchTerm) || user.userId.toLowerCase().includes(searchTerm)
+            );
 
-                messages.forEach((message) => {
-                    const isSelf = message.senderId === currentUserId;
+            if (filteredUsers.length === 0) {
+                userList.innerHTML = `<p class="text-center text-gray-500 p-4">No users found.</p>`;
+                return;
+            }
 
-                    const messageBubble = document.createElement('div');
-                    messageBubble.className = `flex ${isSelf ? 'justify-end' : 'justify-start'}`;
-                    messageBubble.innerHTML = `
-                        <div class="max-w-xs sm:max-w-md lg:max-w-xl p-3 rounded-xl shadow-md ${isSelf ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-gray-700 text-gray-100 rounded-tl-none'}">
-                            <p class="font-medium text-xs ${isSelf ? 'text-indigo-200' : 'text-gray-400'}">${isSelf ? currentUsername : currentRecipient.username}</p>
-                            <p class="text-sm break-words mt-1">${message.text}</p>
-                            <span class="text-xs mt-1 block text-right opacity-75 ${isSelf ? 'text-indigo-200' : 'text-gray-400'}">${message.timestamp ? formatTimestamp(message.timestamp) : 'Sending...'}</span>
-                        </div>
-                    `;
-                    fragment.appendChild(messageBubble);
-                });
+            filteredUsers.forEach(user => {
+                const userItem = document.createElement('div');
+                userItem.className = `p-3 cursor-pointer border-b border-gray-700 hover:bg-gray-700 transition duration-150 ${selectedUser && selectedUser.userId === user.userId ? 'bg-indigo-700 hover:bg-indigo-800' : ''}`;
+                userItem.innerHTML = `
+                    <p class="font-semibold text-white">${user.username}</p>
+                    <p class="text-xs text-gray-400 truncate">ID: ${user.userId}</p>
+                `;
+                userItem.onclick = () => selectUser(user);
+                userList.appendChild(userItem);
+            });
+        }
 
-                messagesDisplay.appendChild(fragment);
+
+        /**
+         * Handles selecting a user to start a conversation.
+         */
+        function selectUser(user) {
+            if (selectedUser && selectedUser.userId === user.userId) return; // Already selected
+            
+            selectedUser = user;
+            
+            // Update UI elements
+            chatHeader.innerHTML = `<p class="text-lg font-bold text-white">${selectedUser.username}</p><p class="text-xs text-gray-400">ID: ${selectedUser.userId}</p>`;
+            messageInputArea.classList.remove('hidden');
+            messageContainer.innerHTML = '<p class="text-center text-gray-500 italic p-4">Loading messages...</p>';
+            
+            // Re-render the user list to highlight the selected user
+            renderUserList(usersArray, userSearchInput.value.toLowerCase());
+            
+            // Start listening to the messages for this chat
+            listenToMessages(selectedUser.userId);
+        }
+
+        let unsubscribeMessages = null;
+
+        /**
+         * Listens to real-time updates for messages between the current and selected user.
+         */
+        function listenToMessages(otherUserId) {
+            if (unsubscribeMessages) unsubscribeMessages(); // Unsubscribe from previous chat
+
+            const chatId = getChatDocId(currentUserId, otherUserId);
+            const messagesRef = getMessagesCollectionRef(chatId);
+            
+            // NOTE: We do not use orderBy here for stability.
+            const messagesQuery = query(messagesRef);
+
+            unsubscribeMessages = onSnapshot(messagesQuery, (snapshot) => {
+                const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 
+                // Sort by timestamp client-side
+                messages.sort((a, b) => a.timestamp - b.timestamp);
+
+                renderMessages(messages);
             }, (error) => {
                 console.error("Error listening to messages:", error);
+                messageContainer.innerHTML = `<p class="text-center text-red-400 p-4">Error loading messages.</p>`;
             });
         }
 
-        document.getElementById('message-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const inputElement = document.getElementById('message-input');
-            const messageText = inputElement.value.trim();
+        /**
+         * Renders the messages in the chat window.
+         */
+        function renderMessages(messages) {
+            messageContainer.innerHTML = '';
 
-            if (!messageText || !currentRecipient || !currentUserId) return;
+            if (messages.length === 0) {
+                messageContainer.innerHTML = '<p class="text-center text-gray-500 italic p-4">No messages yet. Start the conversation!</p>';
+                return;
+            }
+
+            messages.forEach(msg => {
+                const isSender = msg.senderId === currentUserId;
+                
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `flex ${isSender ? 'justify-end' : 'justify-start'}`;
+                
+                const bubble = document.createElement('div');
+                bubble.className = `max-w-xs md:max-w-md lg:max-w-lg p-3 rounded-xl shadow-md ${
+                    isSender 
+                    ? 'bg-indigo-600 text-white rounded-br-none' 
+                    : 'bg-gray-700 text-gray-100 rounded-tl-none'
+                }`;
+                
+                bubble.innerHTML = `
+                    <p class="text-sm font-semibold mb-1">${isSender ? currentUsername : selectedUser.username}</p>
+                    <p class="text-sm break-words">${msg.text}</p>
+                    <p class="text-xs mt-1 opacity-75 text-right">${formatTimestamp(msg.timestamp)}</p>
+                `;
+
+                messageDiv.appendChild(bubble);
+                messageContainer.appendChild(messageDiv);
+            });
+
+            // Scroll to bottom after rendering new messages
+            messageContainer.scrollTop = messageContainer.scrollHeight;
+        }
+
+        /**
+         * Sends a new message to the selected user.
+         */
+        async function sendMessage() {
+            if (!selectedUser) return;
+            
+            const text = messageInput.value.trim();
+            if (text === "") return;
+
+            const chatId = getChatDocId(currentUserId, selectedUser.userId);
+            const messagesRef = getMessagesCollectionRef(chatId);
 
             try {
-                const chatId = generateChatId(currentUserId, currentRecipient.userId);
-                const messagesRef = getMessagesCollectionRef(chatId);
-                
-                // Add the new message
+                // Add the new message document
                 await addDoc(messagesRef, {
                     senderId: currentUserId,
-                    text: messageText,
-                    timestamp: serverTimestamp(),
+                    senderUsername: currentUsername,
+                    receiverId: selectedUser.userId,
+                    text: text,
+                    timestamp: serverTimestamp()
                 });
 
-                // Clear input
-                inputElement.value = '';
-
-                // Update sender's last seen status (to keep them in the users list)
-                const userDocRef = getUserProfileDocRef(currentUserId);
-                await setDoc(userDocRef, { lastSeen: serverTimestamp() }, { merge: true });
+                messageInput.value = ''; // Clear input field
 
             } catch (error) {
                 console.error("Error sending message:", error);
-                console.error("Failed to send message: Check network and database status.");
+                alertUser("Failed to send message. Please try again.");
             }
-        });
+        }
 
-        // Utility function for formatting timestamp (Firestore Timestamp object)
+        // --- UTILITY FUNCTIONS ---
+
+        /**
+         * Simple timestamp formatter.
+         */
         function formatTimestamp(timestamp) {
-            if (timestamp && timestamp.toDate) {
-                const date = timestamp.toDate();
-                return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            }
-            return 'Just now';
+            if (!timestamp) return 'Sending...';
+            // Use client-side date if server timestamp is not yet populated
+            const date = timestamp.toDate ? timestamp.toDate() : new Date();
+            return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+        }
+        
+        /**
+         * Custom alert message box instead of alert().
+         */
+        function alertUser(message) {
+            const existingAlert = document.getElementById('custom-alert');
+            if (existingAlert) existingAlert.remove();
+
+            const alertDiv = document.createElement('div');
+            alertDiv.id = 'custom-alert';
+            alertDiv.className = 'fixed top-4 right-4 bg-red-600 text-white p-4 rounded-lg shadow-xl z-[99] transition-opacity duration-300';
+            alertDiv.textContent = message;
+            document.body.appendChild(alertDiv);
+
+            // Auto-dismiss after 4 seconds
+            setTimeout(() => {
+                alertDiv.style.opacity = '0';
+                setTimeout(() => alertDiv.remove(), 300);
+            }, 4000);
         }
 
-        // --- Start Application ---
-        // Only initialize Firebase if the configuration is confirmed to be valid
-        if (firebaseConfig.apiKey) {
-            initFirebase();
-        } else {
-            console.error("Application cannot start: Firebase config is invalid or missing API key.");
-        }
+        // --- START APP ---
+        window.onload = initFirebase;
     </script>
 </body>
 </html>
