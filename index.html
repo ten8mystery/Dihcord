@@ -67,7 +67,7 @@
         #app .bg-accent { background-color: var(--color-accent); }
         #app .hover-bg-accent:hover { background-color: var(--color-accent); opacity: 0.9; }
         
-        /* --- ENHANCED OUTLINES AND FOCUS STYLING (The fix) --- */
+        /* --- ENHANCED OUTLINES AND FOCUS STYLING (The fix from previous request) --- */
         #app input { 
             background-color: var(--color-bg-secondary); 
             color: var(--color-text-main);
@@ -99,6 +99,32 @@
         .custom-scrollbar::-webkit-scrollbar-track { 
             background-color: var(--color-bg-primary);
         }
+        
+        /* Profile Picture Styling */
+        .profile-pic {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            flex-shrink: 0;
+            border: 2px solid var(--color-accent);
+        }
+        .chat-pic {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+            flex-shrink: 0;
+            margin-right: 8px;
+            border: 1px solid var(--color-border);
+        }
+        .message-pic {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+            flex-shrink: 0;
+        }
 
     </style>
 </head>
@@ -129,7 +155,7 @@
             </div>
         </div>
 
-        <!-- NEW: Settings Modal -->
+        <!-- Settings Modal -->
         <div id="settings-modal" class="hidden absolute inset-0 z-50 flex items-center justify-center bg-gray-900/90 p-4">
             <div class="bg-sidebar p-8 rounded-xl shadow-2xl w-full max-w-lg border border-main">
                 <div class="flex justify-between items-center mb-6">
@@ -141,16 +167,32 @@
                     </button>
                 </div>
 
-                <!-- Section: User Profile -->
+                <!-- Section: User Profile & Picture -->
                 <div class="mb-6 pb-4 border-b border-main">
-                    <h3 class="text-xl font-semibold text-accent mb-3">User Profile</h3>
-                    <p class="text-sm text-secondary mb-3">
-                        Current User: <span class="text-main font-mono text-xs" id="settings-current-user-id"></span>
-                    </p>
-                    <button id="settings-change-name-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 rounded-lg text-sm transition duration-150 flex items-center justify-center space-x-2 shadow-md">
+                    <h3 class="text-xl font-semibold text-accent mb-3">Your Profile</h3>
+                    <div class="flex items-center space-x-4 mb-4">
+                        <img id="settings-current-pic" class="profile-pic w-16 h-16 border-2" src="https://placehold.co/64x64/2d3748/ffffff?text=User" alt="Profile Picture">
+                        <div>
+                            <p class="text-lg font-bold text-main" id="settings-current-username">Loading...</p>
+                            <p class="text-xs text-secondary">ID: <span class="font-mono text-xs" id="settings-current-user-id"></span></p>
+                        </div>
+                    </div>
+                    
+                    <button id="settings-change-name-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 rounded-lg text-sm transition duration-150 flex items-center justify-center space-x-2 shadow-md mb-3">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                        <span>Change Username (<span id="settings-current-username"></span>)</span>
+                        <span>Change Username</span>
                     </button>
+                    
+                    <!-- Profile Picture Upload (NEW) -->
+                    <label for="profile-pic-input" class="block w-full text-center bg-accent hover-bg-accent text-white font-semibold py-2 rounded-lg text-sm transition duration-150 shadow-md cursor-pointer">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                        <span>Upload New Profile Picture</span>
+                    </label>
+                    <input type="file" id="profile-pic-input" accept="image/png, image/jpeg" class="hidden">
+                    <p id="pic-error-message" class="text-red-400 text-xs mt-2 hidden"></p>
+                    <p class="text-xs text-secondary mt-2 text-center">
+                        Images must be small (250KB recommended) for fast loading and to meet database limits.
+                    </p>
                 </div>
 
                 <!-- Section: Themes -->
@@ -180,9 +222,12 @@
 
         <!-- Left Sidebar (User List) -->
         <div class="w-1/3 border-r border-main flex flex-col bg-sidebar">
-            <div class="p-4 border-b border-main">
-                <h1 class="text-2xl font-bold text-main">Contacts & DMs</h1>
-                <p id="current-user-info" class="text-xs text-secondary mt-1"></p>
+            <div class="p-4 border-b border-main flex items-center space-x-3">
+                <img id="sidebar-current-pic" class="profile-pic" src="https://placehold.co/40x40/2d3748/ffffff?text=U" alt="Your Profile Picture">
+                <div>
+                    <h1 class="text-xl font-bold text-main" id="sidebar-current-username">Loading...</h1>
+                    <p id="current-user-info" class="text-xs text-secondary mt-0"></p>
+                </div>
             </div>
             
             <!-- User Search Input / Add DM -->
@@ -202,7 +247,7 @@
                 <p class="text-center text-gray-500 p-4">Start by sending or receiving a message!</p>
             </div>
             
-            <!-- Settings Button (Replaced old buttons) -->
+            <!-- Settings Button -->
             <div class="p-3 border-t border-main">
                 <button id="open-settings-btn" class="w-full bg-accent hover-bg-accent text-white font-semibold py-2 rounded-lg text-sm transition duration-150 flex items-center justify-center space-x-2 shadow-md">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -216,7 +261,7 @@
 
         <!-- Right Content (Chat Window) -->
         <div class="w-2/3 flex flex-col bg-chat text-main">
-            <div id="chat-header" class="p-4 border-b border-main flex items-center justify-between bg-sidebar/50">
+            <div id="chat-header" class="p-4 border-b border-main flex items-center space-x-3 bg-sidebar/50">
                 <p class="text-lg font-semibold text-secondary italic">Select a user to start chatting</p>
             </div>
             
@@ -283,6 +328,8 @@
             measurementId: "G-PSGVGZYGTD"
         };
         const FALLBACK_APP_ID = 'external-dm-app-id';
+        const DEFAULT_PROFILE_PIC = 'https://placehold.co/40x40/2d3748/ffffff?text=U';
+
 
         let firebaseConfig, appId, initialAuthToken;
         firebaseConfig = FALLBACK_FIREBASE_CONFIG;
@@ -304,7 +351,8 @@
         let app, db, auth;
         let currentUserId = null;
         let currentUsername = "Guest";
-        let currentTheme = "dark-default"; // NEW: Theme State
+        let currentProfilePicture = DEFAULT_PROFILE_PIC; // NEW: Profile Picture State
+        let currentTheme = "dark-default";
         let selectedUser = null; 
         
         let allUsersMap = new Map(); 
@@ -339,7 +387,11 @@
         const userSearchInput = document.getElementById('user-search-input');
         const searchResultsDiv = document.getElementById('search-results');
         
-        // --- SETTINGS MODAL DOM Elements (NEW) ---
+        // --- SIDEBAR DOM Elements (NEW) ---
+        const sidebarCurrentPic = document.getElementById('sidebar-current-pic');
+        const sidebarCurrentUsername = document.getElementById('sidebar-current-username');
+
+        // --- SETTINGS MODAL DOM Elements ---
         const settingsModal = document.getElementById('settings-modal');
         const openSettingsBtn = document.getElementById('open-settings-btn');
         const closeSettingsBtn = document.getElementById('close-settings-btn');
@@ -347,6 +399,9 @@
         const settingsCurrentUsername = document.getElementById('settings-current-username');
         const settingsCurrentUserId = document.getElementById('settings-current-user-id');
         const themeOptionsDiv = document.getElementById('theme-options');
+        const settingsCurrentPic = document.getElementById('settings-current-pic'); // NEW
+        const profilePicInput = document.getElementById('profile-pic-input'); // NEW
+        const picErrorMessage = document.getElementById('pic-error-message'); // NEW
 
         // --- NOTIFICATION DOM Elements (Moved to settings prefix) ---
         const settingsNotificationBtn = document.getElementById('settings-notification-btn');
@@ -354,7 +409,7 @@
         const settingsNotificationStatus = document.getElementById('settings-notification-status');
 
         
-        // --- IMAGE DOM Elements ---
+        // --- CHAT MEDIA DOM Elements ---
         const imageUploadInput = document.getElementById('image-upload-input');
         const imagePreviewArea = document.getElementById('image-preview-area');
         const imagePreview = document.getElementById('image-preview');
@@ -431,11 +486,14 @@
                 const userData = userDoc.data();
                 currentUsername = userData.username;
                 currentRecentDMs = userData.recentDMs || {};
-                currentTheme = userData.theme || 'dark-default'; // Load Theme
+                currentTheme = userData.theme || 'dark-default';
+                currentProfilePicture = userData.profilePicture || DEFAULT_PROFILE_PIC; // NEW: Load Picture
                 
                 currentUserInfo.textContent = `User ID: ${currentUserId}`;
+                sidebarCurrentUsername.textContent = currentUsername; // NEW: Update sidebar username
+                sidebarCurrentPic.src = currentProfilePicture; // NEW: Update sidebar pic
                 
-                initTheme(currentTheme); // Apply theme immediately
+                initTheme(currentTheme); 
                 hideLoadingScreen();
                 startAppListeners();
                 updateNotificationUI();
@@ -447,7 +505,7 @@
             }
         }
 
-        // --- THEME HANDLERS (NEW) ---
+        // --- THEME HANDLERS ---
 
         function initTheme(themeName) {
             appContainer.className = appContainer.className.split(' ').filter(c => !c.startsWith('theme-')).join(' ');
@@ -462,9 +520,9 @@
                 await updateDoc(getUserDocRef(currentUserId), {
                     theme: themeName
                 });
-                initTheme(themeName); // Update UI
+                initTheme(themeName); 
                 alertUser(`Theme changed to ${THEMES.find(t => t.value === themeName).name}`);
-                renderThemeOptions(); // Update selected button in settings
+                renderThemeOptions(); 
             } catch (error) {
                 console.error("Error saving theme:", error);
                 alertUser("Failed to save theme setting.");
@@ -477,7 +535,6 @@
                 const isSelected = currentTheme === theme.value;
                 const button = document.createElement('button');
                 
-                // Set button styles based on theme colors for preview
                 button.style.backgroundColor = theme.colors.bg;
                 button.style.color = isSelected ? '#ffffff' : theme.colors.accent; 
                 button.style.borderColor = theme.colors.accent;
@@ -493,12 +550,15 @@
         }
         
 
-        // --- SETTINGS MODAL LOGIC (NEW) ---
+        // --- SETTINGS MODAL LOGIC ---
         
         function openSettingsModal() {
             // Update the profile section in the modal
             settingsCurrentUsername.textContent = currentUsername;
             settingsCurrentUserId.textContent = currentUserId;
+            settingsCurrentPic.src = currentProfilePicture; // NEW: Load current pic
+            picErrorMessage.classList.add('hidden');
+            profilePicInput.value = null; // Clear file input
             
             // Render theme options
             renderThemeOptions();
@@ -512,12 +572,70 @@
         function closeSettingsModal() {
             settingsModal.classList.add('hidden');
         }
+        
+        // --- PROFILE PICTURE HANDLERS (UPDATED) ---
 
+        async function saveProfilePicture(base64Image) {
+            try {
+                // Update Firestore with the new Base64 string
+                await updateDoc(getUserDocRef(currentUserId), {
+                    profilePicture: base64Image
+                });
 
-        // --- PROFILE MODAL LOGIC (Existing, adapted for new trigger) ---
+                currentProfilePicture = base64Image;
+                sidebarCurrentPic.src = currentProfilePicture;
+                settingsCurrentPic.src = currentProfilePicture;
+                
+                // Refresh affected elements
+                renderUserList();
+                if (selectedUser) {
+                    // Force re-selection of the user to refresh the chat header's picture
+                    selectUser(selectedUser);
+                }
+
+                alertUser("Profile picture updated successfully!");
+                picErrorMessage.classList.add('hidden');
+                console.log("Profile picture successfully saved and UI updated.");
+            } catch (error) {
+                console.error("Error saving profile picture:", error);
+                picErrorMessage.textContent = "Failed to save picture. Database error or file size issue.";
+                picErrorMessage.classList.remove('hidden');
+            }
+        }
+
+        function handleProfilePicUpload(event) {
+            const file = event.target.files[0];
+            if (!file) {
+                profilePicInput.value = null; // Clear if cancelled
+                return;
+            }
+
+            // Check size (Firestore doc limit is 1MB, Base64 is ~33% larger)
+            const MAX_SIZE_BYTES = 250 * 1024; // Increased recommended limit
+            if (file.size > MAX_SIZE_BYTES) { 
+                picErrorMessage.textContent = "Image is too large! Max 250KB recommended.";
+                picErrorMessage.classList.remove('hidden');
+                profilePicInput.value = null; // Clear input on error
+                return;
+            } else {
+                picErrorMessage.classList.add('hidden');
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const base64Data = e.target.result;
+                // Pre-update UI for immediate feedback
+                settingsCurrentPic.src = base64Data;
+                saveProfilePicture(base64Data);
+                profilePicInput.value = null; // FIX: Clear input after processing for re-use
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // --- PROFILE MODAL LOGIC ---
 
         function showProfileModal(isChange) {
-            settingsModal.classList.add('hidden'); // Hide settings if showing profile modal
+            settingsModal.classList.add('hidden'); 
             usernameError.classList.add('hidden');
             if (isChange) {
                 profileModalTitle.textContent = "Change Your Username";
@@ -561,7 +679,7 @@
             
             if (username === currentUsername && profileModalTitle.textContent.includes('Change Your Username')) {
                 profileModal.classList.add('hidden');
-                openSettingsModal(); // Return to settings
+                openSettingsModal(); 
                 return;
             }
 
@@ -580,22 +698,25 @@
                     username: username,
                     createdAt: serverTimestamp(),
                     lastSeen: serverTimestamp(),
-                    theme: currentTheme // Ensure theme is saved on initial setup too
+                    theme: currentTheme,
+                    profilePicture: currentProfilePicture // Use current picture (default or uploaded)
                 };
 
                 await setDoc(getUserDocRef(currentUserId), userDataToSave, { merge: true });
 
                 currentUsername = username;
                 currentUserInfo.textContent = `User ID: ${currentUserId}`;
+                sidebarCurrentUsername.textContent = currentUsername; 
                 profileModal.classList.add('hidden');
                 
                 if (isInitialSetup) {
+                    sidebarCurrentPic.src = currentProfilePicture; 
                     startAppListeners();
-                    updateNotificationUI(); 
+                    updateNotificationUI();
                 } else {
                     handleSearch(userSearchInput.value.trim()); 
                     renderUserList();
-                    openSettingsModal(); // Return to settings after name change
+                    openSettingsModal(); 
                 }
 
             } catch (error) {
@@ -629,15 +750,16 @@
                 if (e.key === 'Enter' && !messageInput.disabled) { sendMessage(); }
             });
 
-            // --- IMAGE LISTENERS ---
+            // --- CHAT MEDIA LISTENERS ---
             imageUploadInput.addEventListener('change', handleImageUpload);
             cancelImageBtn.addEventListener('click', cancelImage);
             
-            // --- SETTINGS LISTENERS (NEW) ---
+            // --- SETTINGS LISTENERS ---
             openSettingsBtn.addEventListener('click', openSettingsModal);
             closeSettingsBtn.addEventListener('click', closeSettingsModal);
             settingsChangeNameBtn.addEventListener('click', () => showProfileModal(true));
             settingsNotificationBtn.addEventListener('click', () => requestNotificationPermission('settings-'));
+            profilePicInput.addEventListener('change', handleProfilePicUpload); // NEW LISTENER
             
             userList.addEventListener('click', (e) => {
                 const target = e.target.closest('.remove-user-btn');
@@ -675,7 +797,6 @@
             const btnText = document.getElementById(`${prefix}notification-btn-text`);
             const status = document.getElementById(`${prefix}notification-status`);
             
-            // Reset button classes
             btn.className = btn.className.replace(/bg-(green|red|gray)-\d{3}/g, 'bg-gray-700').replace(/hover:bg-(green|red|gray)-\d{3}/g, 'hover:bg-gray-600');
 
 
@@ -721,7 +842,6 @@
         }
         
         function sendBrowserNotification(senderUsername, messageText) {
-            // Only send notification if the document is hidden/minimized AND permission is granted
             if (Notification.permission === "granted" && document.hidden) {
                 let bodyText = messageText.text;
                 if (messageText.type === 'image') {
@@ -742,7 +862,7 @@
             }
         }
 
-        // --- IMAGE HANDLERS ---
+        // --- CHAT MEDIA HANDLERS ---
         
         function cancelImage() {
             selectedImageBase64 = null;
@@ -784,16 +904,30 @@
             unsubscribeAllUsers = onSnapshot(usersRef, (snapshot) => {
                 snapshot.docs.forEach(doc => {
                     const userData = doc.data();
+                    // NEW: Ensure profile picture is always set
+                    userData.profilePicture = userData.profilePicture || DEFAULT_PROFILE_PIC;
+
                     if (userData.userId !== currentUserId) {
                        allUsersMap.set(userData.userId, userData);
                     }
                     if (userData.userId === currentUserId) {
+                        // Update current user's details if changed externally
                         currentUsername = userData.username;
+                        currentProfilePicture = userData.profilePicture;
+                        sidebarCurrentUsername.textContent = currentUsername;
+                        sidebarCurrentPic.src = currentProfilePicture;
                     }
                 });
                 
                 handleSearch(userSearchInput.value.trim());
                 renderUserList();
+                // Update chat header if user data changed
+                if(selectedUser) {
+                    const updatedUser = allUsersMap.get(selectedUser.userId);
+                    if(updatedUser) {
+                        selectUser(updatedUser, true); 
+                    }
+                }
 
             }, (error) => {
                 console.error("Error listening to all users:", error);
@@ -812,12 +946,15 @@
                     
                     if (currentUsername !== userData.username) {
                         currentUsername = userData.username;
-                        if (selectedUser) {
-                            chatHeader.innerHTML = `<p class="text-lg font-bold text-main">${selectedUser.username}</p><p class="text-xs text-secondary">ID: ${selectedUser.userId}</p>`;
-                        }
+                        sidebarCurrentUsername.textContent = currentUsername;
                     }
                     
-                    // NEW: Update theme if changed externally
+                    const newPic = userData.profilePicture || DEFAULT_PROFILE_PIC;
+                    if (currentProfilePicture !== newPic) {
+                        currentProfilePicture = newPic;
+                        sidebarCurrentPic.src = currentProfilePicture;
+                    }
+
                     const newTheme = userData.theme || 'dark-default';
                     if (currentTheme !== newTheme) {
                         initTheme(newTheme);
@@ -843,7 +980,7 @@
                 return;
             }
 
-            renderUserList(false, searchTerm); 
+            renderUserList(false, filterTerm); 
 
             let foundNewUser = null;
             
@@ -861,9 +998,12 @@
                 
                 searchResultsDiv.innerHTML = `
                     <div class="flex items-center justify-between p-2 rounded-lg bg-sidebar border border-accent shadow-md">
-                        <div>
-                            <p class="font-semibold text-main">${foundNewUser.username}</p>
-                            <p class="text-xs text-secondary truncate">ID: ${foundNewUser.userId}</p>
+                        <div class="flex items-center space-x-2">
+                             <img class="chat-pic w-8 h-8 !border-none" src="${foundNewUser.profilePicture}" alt="User Pic">
+                            <div>
+                                <p class="font-semibold text-main">${foundNewUser.username}</p>
+                                <p class="text-xs text-secondary truncate">ID: ${foundNewUser.userId}</p>
+                            </div>
                         </div>
                         <button class="start-dm-btn bg-accent hover-bg-accent text-white font-semibold py-1 px-3 rounded-lg text-sm transition duration-150 ml-2 shadow-sm" data-userid="${foundNewUser.userId}">
                             ${isRemoved ? 'Restore DM' : 'Start DM'}
@@ -912,19 +1052,25 @@
                 userList.innerHTML = `<p class="text-center text-secondary p-4">No recent messages match your search.</p>`;
                 return;
             }
+            
+            let hasContent = false;
 
             filteredUsers.forEach(dm => {
                 const user = allUsersMap.get(dm.userId);
                 if (!user) return; 
 
+                hasContent = true;
                 const userItem = document.createElement('div');
                 userItem.className = `p-3 cursor-pointer border-b border-main transition duration-150 flex items-center justify-between 
                                       ${selectedUser && selectedUser.userId === user.userId ? 'user-item-active' : 'hover:bg-gray-700'}`;
                 
                 userItem.innerHTML = `
-                    <div class="flex-grow text-main" data-userid="${user.userId}">
-                        <p class="font-semibold">${user.username}</p>
-                        <p class="text-xs text-secondary truncate">ID: ${user.userId}</p>
+                    <div class="flex items-center space-x-3 flex-grow" data-userid="${user.userId}">
+                        <img class="profile-pic w-10 h-10" src="${user.profilePicture}" alt="${user.username} pic">
+                        <div>
+                            <p class="font-semibold text-main">${user.username}</p>
+                            <p class="text-xs text-secondary truncate">ID: ${user.userId}</p>
+                        </div>
                     </div>
                     <button class="remove-user-btn text-secondary hover:text-red-400 transition duration-150 p-1 rounded-full ml-2" data-userid="${user.userId}">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -936,6 +1082,10 @@
                 userItem.querySelector('.flex-grow').onclick = () => selectUser(user);
                 userList.appendChild(userItem);
             });
+            
+            if (!hasContent) {
+                userList.innerHTML = `<p class="text-center text-secondary p-4">No recent messages match your search.</p>`;
+            }
         }
 
 
@@ -965,18 +1115,31 @@
         }
 
 
-        function selectUser(user) {
-            if (selectedUser && selectedUser.userId === user.userId) return;
+        function selectUser(user, isUpdate = false) {
+            if (!isUpdate && selectedUser && selectedUser.userId === user.userId) return;
             
-            selectedUser = user;
+            // FIX: Ensure we use the latest data from the allUsersMap if available
+            const latestUser = allUsersMap.get(user.userId) || user; 
+            selectedUser = latestUser;
             
-            chatHeader.innerHTML = `<p class="text-lg font-bold text-main">${selectedUser.username}</p><p class="text-xs text-secondary">ID: ${selectedUser.userId}</p>`;
+            // Render Header with Profile Picture
+            chatHeader.innerHTML = `
+                <img class="profile-pic w-10 h-10" src="${selectedUser.profilePicture}" alt="${selectedUser.username} pic">
+                <div>
+                    <p class="text-lg font-bold text-main">${selectedUser.username}</p>
+                    <p class="text-xs text-secondary">ID: ${selectedUser.userId}</p>
+                </div>
+            `;
+            
             messageInputArea.classList.remove('hidden');
-            messageContainer.innerHTML = '<p class="text-center text-secondary italic p-4">Loading messages...</p>';
             
-            cancelImage(); 
-            handleSearch(userSearchInput.value.trim()); 
-            listenToMessages(selectedUser.userId);
+            if (!isUpdate) {
+                messageContainer.innerHTML = '<p class="text-center text-secondary italic p-4">Loading messages...</p>';
+                cancelImage(); 
+                handleSearch(userSearchInput.value.trim()); 
+                listenToMessages(selectedUser.userId);
+            }
+            renderUserList();
         }
 
         let unsubscribeMessages = null;
@@ -1042,14 +1205,13 @@
 
             messages.forEach(msg => {
                 const isSender = msg.senderId === currentUserId;
-                const otherUser = selectedUser || allUsersMap.get(msg.receiverId);
+                const senderUser = allUsersMap.get(msg.senderId) || (isSender ? { username: currentUsername, profilePicture: currentProfilePicture } : selectedUser);
                 
                 const messageDiv = document.createElement('div');
-                messageDiv.className = `flex ${isSender ? 'justify-end' : 'justify-start'}`;
+                messageDiv.className = `flex ${isSender ? 'justify-end' : 'justify-start'} items-end space-x-2`;
                 
                 const bubble = document.createElement('div');
                 
-                // Dynamic Message Bubble Colors
                 const senderBg = 'bg-accent text-white rounded-br-none'; 
                 const receiverBg = 'bg-sidebar text-main rounded-tl-none';
                 
@@ -1059,7 +1221,8 @@
                     : receiverBg
                 }`;
                 
-                const displayName = isSender ? currentUsername : otherUser?.username || 'Unknown User';
+                const displayName = isSender ? currentUsername : senderUser?.username || 'Unknown User';
+                const profilePicSrc = senderUser?.profilePicture || DEFAULT_PROFILE_PIC;
 
                 let contentHTML = '';
 
@@ -1080,8 +1243,17 @@
                     ${contentHTML}
                     <p class="text-xs mt-1 opacity-75 text-right">${formatTimestamp(msg.timestamp)}</p>
                 `;
+                
+                // Add profile picture to message display
+                const profilePicElement = `<img class="message-pic" src="${profilePicSrc}" alt="${displayName} pic">`;
 
-                messageDiv.appendChild(bubble);
+                if (isSender) {
+                    messageDiv.innerHTML = `${bubble.outerHTML}${profilePicElement}`;
+                } else {
+                    messageDiv.innerHTML = `${profilePicElement}${bubble.outerHTML}`;
+                }
+
+
                 messageContainer.appendChild(messageDiv);
             });
 
