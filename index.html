@@ -11,19 +11,29 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #111827; /* UPDATED: Match new darker theme */
+            background-color: #111827;
             color: #f3f4f6;
+        }
+
+        /* NEW: Canvas Styling for Background Animation */
+        #particle-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1; /* Ensure it stays behind the main app */
         }
 
         /* --- THEME DEFINITIONS (Uses CSS Variables for Dynamic Styling) --- */
         
-        /* 1. DARK DEFAULT (NEW: Sleek, High-Contrast) */
+        /* 1. DARK DEFAULT (Sleek, High-Contrast) */
         .theme-dark-default {
             --color-bg-primary: #111827; /* Sidebar/Modal (Darker) */
             --color-bg-secondary: #1f2937; /* Chat background (Lighter) */
             --color-accent: #3b82f6; /* Brighter Blue */
             --color-text-main: #f9fafb; /* Brighter White */
-            --color-text-secondary: #9ca3af; /* Standard Gray */
+            --color-text-secondary: #9ca3af; /* Standard Gray for particles */
             --color-border: #374151; /* Lighter Border for contrast */
         }
 
@@ -33,7 +43,7 @@
             --color-bg-secondary: #271a5c; /* Lighter Purple */
             --color-accent: #e91e63; /* Pink */
             --color-text-main: #fce4ec;
-            --color-text-secondary: #b39ddb;
+            --color-text-secondary: #b39ddb; /* Light purple for particles */
             --color-border: #4527a0;
         }
         
@@ -43,7 +53,7 @@
             --color-bg-secondary: #d1fae5; /* Mint Green */
             --color-accent: #059669; /* Emerald */
             --color-text-main: #1f2937;
-            --color-text-secondary: #374151;
+            --color-text-secondary: #374151; /* Dark gray for particles */
             --color-border: #9ca3af;
         }
 
@@ -129,6 +139,9 @@
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
+
+    <!-- NEW: Dotted Background Canvas -->
+    <canvas id="particle-canvas"></canvas>
 
     <!-- Main App Container - Theme class will be applied here -->
     <div id="app" class="w-full max-w-5xl h-[85vh] shadow-2xl rounded-xl flex overflow-hidden theme-dark-default border border-main">
@@ -308,7 +321,7 @@
         </div>
     </div>
     
-    <!-- Firebase Imports -->
+    <!-- Firebase Imports and Logic -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -316,6 +329,84 @@
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         setLogLevel('Debug');
+
+        // --- PARTICLE ANIMATION LOGIC (NEW) ---
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        const particleCount = 60;
+        let animationFrameId;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        // Particle constructor/class
+        class Particle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.radius = Math.random() * 1.5 + 0.5; // Very subtle size
+                this.vx = (Math.random() - 0.5) * 0.1; // Very slow movement
+                this.vy = (Math.random() - 0.5) * 0.1; 
+                this.opacity = Math.random() * 0.5 + 0.1; // Low opacity
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Wrap around boundaries
+                if (this.x < 0) this.x = canvas.width;
+                if (this.x > canvas.width) this.x = 0;
+                if (this.y < 0) this.y = canvas.height;
+                if (this.y > canvas.height) this.y = 0;
+            }
+
+            draw() {
+                // Get the current theme's secondary text color from the root element
+                const color = getComputedStyle(document.documentElement).getPropertyValue('--color-text-secondary').trim() || '#9ca3af';
+                ctx.fillStyle = color;
+                ctx.globalAlpha = this.opacity;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1; // Reset global alpha
+            }
+        }
+
+        function initParticles() {
+            // Re-initialize only if particles array is empty or size changed significantly
+            if (particles.length === 0 || particles.length !== particleCount) {
+                particles = [];
+                for (let i = 0; i < particleCount; i++) {
+                    particles.push(new Particle());
+                }
+            }
+        }
+
+        function animateParticles() {
+            animationFrameId = requestAnimationFrame(animateParticles);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+        }
+
+        function startParticleAnimation() {
+            resizeCanvas();
+            initParticles();
+            animateParticles();
+        }
+
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            initParticles(); // Reset particle positions on resize for better coverage
+        });
+        // --- END PARTICLE ANIMATION LOGIC ---
 
         // --- GLOBAL VARIABLES (Provided by Environment or Fallback) ---
         const FALLBACK_FIREBASE_CONFIG = {
@@ -351,7 +442,7 @@
         let app, db, auth;
         let currentUserId = null;
         let currentUsername = "Guest";
-        let currentProfilePicture = DEFAULT_PROFILE_PIC; // NEW: Profile Picture State
+        let currentProfilePicture = DEFAULT_PROFILE_PIC; // Profile Picture State
         let currentTheme = "dark-default";
         let selectedUser = null; 
         
@@ -387,7 +478,7 @@
         const userSearchInput = document.getElementById('user-search-input');
         const searchResultsDiv = document.getElementById('search-results');
         
-        // --- SIDEBAR DOM Elements (NEW) ---
+        // --- SIDEBAR DOM Elements ---
         const sidebarCurrentPic = document.getElementById('sidebar-current-pic');
         const sidebarCurrentUsername = document.getElementById('sidebar-current-username');
 
@@ -399,11 +490,11 @@
         const settingsCurrentUsername = document.getElementById('settings-current-username');
         const settingsCurrentUserId = document.getElementById('settings-current-user-id');
         const themeOptionsDiv = document.getElementById('theme-options');
-        const settingsCurrentPic = document.getElementById('settings-current-pic'); // NEW
-        const profilePicInput = document.getElementById('profile-pic-input'); // NEW
-        const picErrorMessage = document.getElementById('pic-error-message'); // NEW
+        const settingsCurrentPic = document.getElementById('settings-current-pic');
+        const profilePicInput = document.getElementById('profile-pic-input');
+        const picErrorMessage = document.getElementById('pic-error-message');
 
-        // --- NOTIFICATION DOM Elements (Moved to settings prefix) ---
+        // --- NOTIFICATION DOM Elements ---
         const settingsNotificationBtn = document.getElementById('settings-notification-btn');
         const settingsNotificationBtnText = document.getElementById('settings-notification-btn-text');
         const settingsNotificationStatus = document.getElementById('settings-notification-status');
@@ -487,11 +578,11 @@
                 currentUsername = userData.username;
                 currentRecentDMs = userData.recentDMs || {};
                 currentTheme = userData.theme || 'dark-default';
-                currentProfilePicture = userData.profilePicture || DEFAULT_PROFILE_PIC; // NEW: Load Picture
+                currentProfilePicture = userData.profilePicture || DEFAULT_PROFILE_PIC;
                 
                 currentUserInfo.textContent = `User ID: ${currentUserId}`;
-                sidebarCurrentUsername.textContent = currentUsername; // NEW: Update sidebar username
-                sidebarCurrentPic.src = currentProfilePicture; // NEW: Update sidebar pic
+                sidebarCurrentUsername.textContent = currentUsername;
+                sidebarCurrentPic.src = currentProfilePicture;
                 
                 initTheme(currentTheme); 
                 hideLoadingScreen();
@@ -553,17 +644,14 @@
         // --- SETTINGS MODAL LOGIC ---
         
         function openSettingsModal() {
-            // Update the profile section in the modal
             settingsCurrentUsername.textContent = currentUsername;
             settingsCurrentUserId.textContent = currentUserId;
-            settingsCurrentPic.src = currentProfilePicture; // NEW: Load current pic
+            settingsCurrentPic.src = currentProfilePicture;
             picErrorMessage.classList.add('hidden');
-            profilePicInput.value = null; // Clear file input
+            profilePicInput.value = null;
             
-            // Render theme options
             renderThemeOptions();
             
-            // Update notification UI within settings
             updateNotificationUI('settings-');
             
             settingsModal.classList.remove('hidden');
@@ -573,7 +661,7 @@
             settingsModal.classList.add('hidden');
         }
         
-        // --- PROFILE PICTURE HANDLERS (UPDATED) ---
+        // --- PROFILE PICTURE HANDLERS ---
 
         async function saveProfilePicture(base64Image) {
             try {
@@ -589,13 +677,13 @@
                 // Refresh affected elements
                 renderUserList();
                 if (selectedUser) {
-                    // Force re-selection of the user to refresh the chat header's picture
-                    selectUser(selectedUser, true); // Use isUpdate=true to only refresh header
+                    const updatedUser = allUsersMap.get(selectedUser.userId) || selectedUser;
+                    updatedUser.profilePicture = base64Image;
+                    selectUser(updatedUser, true);
                 }
 
                 alertUser("Profile picture updated successfully!");
                 picErrorMessage.classList.add('hidden');
-                console.log("Profile picture successfully saved and UI updated.");
             } catch (error) {
                 console.error("Error saving profile picture:", error);
                 picErrorMessage.textContent = "Failed to save picture. Database error or file size issue.";
@@ -606,7 +694,7 @@
         function handleProfilePicUpload(event) {
             const file = event.target.files[0];
             if (!file) {
-                profilePicInput.value = null; // Clear if cancelled
+                profilePicInput.value = null;
                 return;
             }
 
@@ -615,7 +703,7 @@
             if (file.size > MAX_SIZE_BYTES) { 
                 picErrorMessage.textContent = "Image is too large! Max 250KB recommended.";
                 picErrorMessage.classList.remove('hidden');
-                profilePicInput.value = null; // Clear input on error
+                profilePicInput.value = null;
                 return;
             } else {
                 picErrorMessage.classList.add('hidden');
@@ -627,7 +715,7 @@
                 // Pre-update UI for immediate feedback
                 settingsCurrentPic.src = base64Data;
                 saveProfilePicture(base64Data);
-                profilePicInput.value = null; // FIX: Clear input after processing for re-use
+                profilePicInput.value = null;
             };
             reader.readAsDataURL(file);
         }
@@ -699,7 +787,7 @@
                     createdAt: serverTimestamp(),
                     lastSeen: serverTimestamp(),
                     theme: currentTheme,
-                    profilePicture: currentProfilePicture // Use current picture (default or uploaded)
+                    profilePicture: currentProfilePicture
                 };
 
                 await setDoc(getUserDocRef(currentUserId), userDataToSave, { merge: true });
@@ -759,7 +847,7 @@
             closeSettingsBtn.addEventListener('click', closeSettingsModal);
             settingsChangeNameBtn.addEventListener('click', () => showProfileModal(true));
             settingsNotificationBtn.addEventListener('click', () => requestNotificationPermission('settings-'));
-            profilePicInput.addEventListener('change', handleProfilePicUpload); // NEW LISTENER
+            profilePicInput.addEventListener('change', handleProfilePicUpload);
             
             userList.addEventListener('click', (e) => {
                 const target = e.target.closest('.remove-user-btn');
@@ -904,7 +992,7 @@
             unsubscribeAllUsers = onSnapshot(usersRef, (snapshot) => {
                 snapshot.docs.forEach(doc => {
                     const userData = doc.data();
-                    // NEW: Ensure profile picture is always set
+                    // Ensure profile picture is always set
                     userData.profilePicture = userData.profilePicture || DEFAULT_PROFILE_PIC;
 
                     if (userData.userId !== currentUserId) {
@@ -1118,7 +1206,7 @@
         function selectUser(user, isUpdate = false) {
             if (!isUpdate && selectedUser && selectedUser.userId === user.userId) return;
             
-            // FIX: Ensure we use the latest data from the allUsersMap if available
+            // Ensure we use the latest data from the allUsersMap if available
             const latestUser = allUsersMap.get(user.userId) || user; 
             selectedUser = latestUser;
             
@@ -1339,7 +1427,10 @@
         }
 
         // --- START APP ---
-        window.onload = initFirebase;
+        window.onload = function() {
+            startParticleAnimation();
+            initFirebase();
+        };
     </script>
 </body>
 </html>
