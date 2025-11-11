@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dihcord</title>
-    <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Use Inter font -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
         body {
@@ -29,10 +27,8 @@
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
 
-    <!-- Main App Container -->
     <div id="app" class="w-full max-w-5xl h-[85vh] bg-gray-800 shadow-2xl rounded-xl flex overflow-hidden">
         
-        <!-- Loading Screen (Initial state) -->
         <div id="loading-screen" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-gray-900/90 text-white transition-opacity duration-300">
             <svg class="animate-spin h-8 w-8 text-indigo-400 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -41,11 +37,10 @@
             <p id="status-message">Connecting to database...</p>
         </div>
 
-        <!-- Profile Setup Modal -->
         <div id="profile-modal" class="hidden absolute inset-0 z-50 flex items-center justify-center bg-gray-900/90 p-4">
             <div class="bg-gray-700 p-8 rounded-xl shadow-2xl w-full max-w-sm">
-                <h2 class="text-xl font-bold mb-4 text-white">Set Up Your Profile</h2>
-                <p class="text-gray-300 mb-4">Please choose a unique username to start chatting.</p>
+                <h2 class="text-xl font-bold mb-4 text-white" id="profile-modal-title">Set Up Your Profile</h2>
+                <p class="text-gray-300 mb-4" id="profile-modal-text">Please choose a unique username to start chatting.</p>
                 <input type="text" id="username-input" placeholder="Enter your username" class="w-full p-3 rounded-lg bg-gray-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150">
                 <button id="save-profile-btn" class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-lg shadow-md transition duration-150">
                     Save Profile
@@ -53,37 +48,39 @@
             </div>
         </div>
 
-        <!-- Left Sidebar (User List) -->
         <div class="w-1/3 border-r border-gray-700 flex flex-col bg-gray-900">
             <div class="p-4 border-b border-gray-700">
                 <h1 class="text-2xl font-bold text-white">Direct Messages</h1>
                 <p id="current-user-info" class="text-xs text-gray-400 mt-1"></p>
             </div>
             
-            <!-- User Search Input -->
             <div class="p-3 border-b border-gray-700">
                 <input type="text" id="user-search-input" placeholder="Search users by name..." class="w-full p-2 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition duration-150 text-sm">
             </div>
 
-            <!-- User List -->
             <div id="user-list" class="flex-grow overflow-y-auto custom-scrollbar">
-                <!-- User items will be dynamically inserted here -->
                 <p class="text-center text-gray-500 p-4">Loading users...</p>
+            </div>
+            
+            <div class="p-3 border-t border-gray-700">
+                <button id="change-name-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 rounded-lg text-sm transition duration-150 flex items-center justify-center space-x-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.82 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.82 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.82-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.82-3.31 2.37-2.37a1.724 1.724 0 002.572-1.065z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span>Change Name</span>
+                </button>
             </div>
         </div>
 
-        <!-- Right Content (Chat Window) -->
         <div class="w-2/3 flex flex-col bg-gray-800">
             <div id="chat-header" class="p-4 border-b border-gray-700 flex items-center justify-between bg-gray-900/50">
                 <p class="text-lg font-semibold text-gray-400 italic">Select a user to start chatting</p>
             </div>
             
-            <!-- Message Display Area -->
             <div id="message-container" class="flex-grow overflow-y-auto p-6 space-y-4 custom-scrollbar">
-                <!-- Messages will be dynamically inserted here -->
-            </div>
+                </div>
 
-            <!-- Message Input Area -->
             <div id="message-input-area" class="p-4 border-t border-gray-700 hidden">
                 <div class="flex items-center space-x-3">
                     <input type="text" id="message-input" placeholder="Type a message..." class="flex-grow p-3 rounded-full bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150">
@@ -97,7 +94,6 @@
         </div>
     </div>
 
-    <!-- Firebase Imports -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -149,6 +145,8 @@
         const loadingScreen = document.getElementById('loading-screen');
         const statusMessage = document.getElementById('status-message');
         const profileModal = document.getElementById('profile-modal');
+        const profileModalTitle = document.getElementById('profile-modal-title');
+        const profileModalText = document.getElementById('profile-modal-text');
         const usernameInput = document.getElementById('username-input');
         const saveProfileBtn = document.getElementById('save-profile-btn');
         const userList = document.getElementById('user-list');
@@ -159,6 +157,7 @@
         const sendButton = document.getElementById('send-button');
         const currentUserInfo = document.getElementById('current-user-info');
         const userSearchInput = document.getElementById('user-search-input');
+        const changeNameBtn = document.getElementById('change-name-btn');
 
 
         // --- FIRESTORE PATHS ---
@@ -219,6 +218,8 @@
                         currentUserId = user.uid;
                         statusMessage.textContent = "Authenticated. Checking profile...";
                         await checkAndSetupUserProfile();
+                        // Setup the change name button listener right after auth
+                        changeNameBtn.addEventListener('click', () => showProfileModal(true));
                     } else {
                         // This case should be rare if the above try/catch logic is correct
                         console.error("Auth state is null after sign-in attempt.");
@@ -249,17 +250,29 @@
                 hideLoadingScreen();
                 startAppListeners();
             } else {
-                // Show profile setup modal
+                // Show initial profile setup modal
                 loadingScreen.classList.add('hidden');
-                profileModal.classList.remove('hidden');
-                
-                saveProfileBtn.addEventListener('click', saveProfile);
-                usernameInput.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') {
-                        saveProfile();
-                    }
-                });
+                showProfileModal(false);
             }
+        }
+
+        /**
+         * Shows the profile setup/change modal.
+         * @param {boolean} isChange Whether this is a profile change or initial setup.
+         */
+        function showProfileModal(isChange) {
+            if (isChange) {
+                profileModalTitle.textContent = "Change Your Username";
+                profileModalText.textContent = "Enter a new username. It will update immediately for everyone.";
+                usernameInput.value = currentUsername; // Pre-fill with current name
+            } else {
+                profileModalTitle.textContent = "Set Up Your Profile";
+                profileModalText.textContent = "Please choose a unique username to start chatting.";
+                usernameInput.value = ''; // Clear for initial setup
+            }
+
+            profileModal.classList.remove('hidden');
+            usernameInput.focus();
         }
 
         /**
@@ -273,20 +286,25 @@
             }
 
             try {
+                const isInitialSetup = profileModal.classList.contains('hidden'); // Check if it was initially hidden
+
                 // Save user data (This uses setDoc which creates if not exists)
                 await setDoc(getUserDocRef(currentUserId), {
                     userId: currentUserId,
                     username: username,
                     createdAt: serverTimestamp(),
                     lastSeen: serverTimestamp()
-                });
+                }, { merge: true }); // Use merge so we don't overwrite existing data
+
                 
                 currentUsername = username;
                 currentUserInfo.textContent = `User ID: ${currentUserId}`;
                 profileModal.classList.add('hidden');
                 
-                // Start main app functionality
-                startAppListeners();
+                // If it was initial setup, start listeners. If it was a change, they are already running.
+                if (!isInitialSetup) {
+                    startAppListeners();
+                }
 
             } catch (error) {
                 console.error("Error setting user profile:", error);
@@ -302,17 +320,24 @@
         }
 
         function startAppListeners() {
-            // 1. Listen for user list updates
+            // 1. Setup modal save listeners once
+            saveProfileBtn.addEventListener('click', saveProfile);
+            usernameInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    saveProfile();
+                }
+            });
+            
+            // 2. Listen for user list updates
             listenToUserList();
             
-            // 2. Add search functionality
+            // 3. Add search functionality
             userSearchInput.addEventListener('input', () => {
                 const searchTerm = userSearchInput.value.toLowerCase();
-                // We re-render the list based on the full usersArray (handled inside listenToUserList)
                 renderUserList(usersArray, searchTerm); 
             });
 
-            // 3. Add send message listener
+            // 4. Add send message listener
             sendButton.addEventListener('click', sendMessage);
             messageInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
@@ -331,7 +356,6 @@
             if (unsubscribeUserList) unsubscribeUserList();
 
             const usersRef = getUsersCollectionRef();
-            // NOTE: We don't use orderBy here to prevent required index errors.
             const usersQuery = query(usersRef);
 
             unsubscribeUserList = onSnapshot(usersQuery, (snapshot) => {
@@ -343,6 +367,26 @@
                 // Re-render the list with the current search term
                 const searchTerm = userSearchInput.value.toLowerCase();
                 renderUserList(usersArray, searchTerm);
+                
+                // If the selected user's name changed, update the header immediately
+                if (selectedUser) {
+                    const updatedUser = usersArray.find(u => u.userId === selectedUser.userId);
+                    if (updatedUser && updatedUser.username !== selectedUser.username) {
+                        selectedUser = updatedUser; // Update the local selectedUser object
+                        chatHeader.innerHTML = `<p class="text-lg font-bold text-white">${selectedUser.username}</p><p class="text-xs text-gray-400">ID: ${selectedUser.userId}</p>`;
+                        // Re-render messages to update sender names if the current user changed their name
+                        if (currentUserId === updatedUser.userId) {
+                             // Force a message re-render to update the sender name on all current user messages
+                             if (unsubscribeMessages) {
+                                // This is a bit of a hack: re-subscribing forces a full data fetch/render
+                                const tempSelectedId = selectedUser.userId;
+                                unsubscribeMessages();
+                                listenToMessages(tempSelectedId);
+                             }
+                        }
+                    }
+                }
+
             }, (error) => {
                 console.error("Error listening to user list:", error);
                 userList.innerHTML = `<p class="text-center text-red-400 p-4">Error loading users.</p>`;
@@ -357,181 +401,4 @@
         function renderUserList(users, searchTerm) {
             userList.innerHTML = '';
             
-            const filteredUsers = users.filter(user => 
-                user.username.toLowerCase().includes(searchTerm) || user.userId.toLowerCase().includes(searchTerm)
-            );
-
-            if (filteredUsers.length === 0) {
-                userList.innerHTML = `<p class="text-center text-gray-500 p-4">No users found.</p>`;
-                return;
-            }
-
-            filteredUsers.forEach(user => {
-                const userItem = document.createElement('div');
-                userItem.className = `p-3 cursor-pointer border-b border-gray-700 hover:bg-gray-700 transition duration-150 ${selectedUser && selectedUser.userId === user.userId ? 'bg-indigo-700 hover:bg-indigo-800' : ''}`;
-                userItem.innerHTML = `
-                    <p class="font-semibold text-white">${user.username}</p>
-                    <p class="text-xs text-gray-400 truncate">ID: ${user.userId}</p>
-                `;
-                userItem.onclick = () => selectUser(user);
-                userList.appendChild(userItem);
-            });
-        }
-
-
-        /**
-         * Handles selecting a user to start a conversation.
-         */
-        function selectUser(user) {
-            if (selectedUser && selectedUser.userId === user.userId) return; // Already selected
-            
-            selectedUser = user;
-            
-            // Update UI elements
-            chatHeader.innerHTML = `<p class="text-lg font-bold text-white">${selectedUser.username}</p><p class="text-xs text-gray-400">ID: ${selectedUser.userId}</p>`;
-            messageInputArea.classList.remove('hidden');
-            messageContainer.innerHTML = '<p class="text-center text-gray-500 italic p-4">Loading messages...</p>';
-            
-            // Re-render the user list to highlight the selected user
-            renderUserList(usersArray, userSearchInput.value.toLowerCase());
-            
-            // Start listening to the messages for this chat
-            listenToMessages(selectedUser.userId);
-        }
-
-        let unsubscribeMessages = null;
-
-        /**
-         * Listens to real-time updates for messages between the current and selected user.
-         */
-        function listenToMessages(otherUserId) {
-            if (unsubscribeMessages) unsubscribeMessages(); // Unsubscribe from previous chat
-
-            const chatId = getChatDocId(currentUserId, otherUserId);
-            const messagesRef = getMessagesCollectionRef(chatId);
-            
-            // NOTE: We do not use orderBy here for stability.
-            const messagesQuery = query(messagesRef);
-
-            unsubscribeMessages = onSnapshot(messagesQuery, (snapshot) => {
-                const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                
-                // Sort by timestamp client-side
-                messages.sort((a, b) => {
-                    const timeA = a.timestamp && a.timestamp.seconds ? a.timestamp.seconds : 0;
-                    const timeB = b.timestamp && b.timestamp.seconds ? b.timestamp.seconds : 0;
-                    return timeA - timeB;
-                });
-
-                renderMessages(messages);
-            }, (error) => {
-                console.error("Error listening to messages:", error);
-                messageContainer.innerHTML = `<p class="text-center text-red-400 p-4">Error loading messages.</p>`;
-            });
-        }
-
-        /**
-         * Renders the messages in the chat window.
-         */
-        function renderMessages(messages) {
-            messageContainer.innerHTML = '';
-
-            if (messages.length === 0) {
-                messageContainer.innerHTML = '<p class="text-center text-gray-500 italic p-4">No messages yet. Start the conversation!</p>';
-                return;
-            }
-
-            messages.forEach(msg => {
-                const isSender = msg.senderId === currentUserId;
-                
-                const messageDiv = document.createElement('div');
-                messageDiv.className = `flex ${isSender ? 'justify-end' : 'justify-start'}`;
-                
-                const bubble = document.createElement('div');
-                bubble.className = `max-w-xs md:max-w-md lg:max-w-lg p-3 rounded-xl shadow-md ${
-                    isSender 
-                    ? 'bg-indigo-600 text-white rounded-br-none' 
-                    : 'bg-gray-700 text-gray-100 rounded-tl-none'
-                }`;
-                
-                bubble.innerHTML = `
-                    <p class="text-sm font-semibold mb-1">${isSender ? currentUsername : selectedUser.username}</p>
-                    <p class="text-sm break-words">${msg.text}</p>
-                    <p class="text-xs mt-1 opacity-75 text-right">${formatTimestamp(msg.timestamp)}</p>
-                `;
-
-                messageDiv.appendChild(bubble);
-                messageContainer.appendChild(messageDiv);
-            });
-
-            // Scroll to bottom after rendering new messages
-            messageContainer.scrollTop = messageContainer.scrollHeight;
-        }
-
-        /**
-         * Sends a new message to the selected user.
-         */
-        async function sendMessage() {
-            if (!selectedUser) return;
-            
-            const text = messageInput.value.trim();
-            if (text === "") return;
-
-            const chatId = getChatDocId(currentUserId, selectedUser.userId);
-            const messagesRef = getMessagesCollectionRef(chatId);
-
-            try {
-                // Add the new message document
-                await addDoc(messagesRef, {
-                    senderId: currentUserId,
-                    senderUsername: currentUsername,
-                    receiverId: selectedUser.userId,
-                    text: text,
-                    timestamp: serverTimestamp()
-                });
-
-                messageInput.value = ''; // Clear input field
-
-            } catch (error) {
-                console.error("Error sending message:", error);
-                alertUser("Failed to send message. Please try again.");
-            }
-        }
-
-        // --- UTILITY FUNCTIONS ---
-
-        /**
-         * Simple timestamp formatter.
-         */
-        function formatTimestamp(timestamp) {
-            if (!timestamp) return 'Sending...';
-            // Use client-side date if server timestamp is not yet populated
-            const date = timestamp.toDate ? timestamp.toDate() : new Date();
-            return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-        }
-        
-        /**
-         * Custom alert message box instead of alert().
-         */
-        function alertUser(message) {
-            const existingAlert = document.getElementById('custom-alert');
-            if (existingAlert) existingAlert.remove();
-
-            const alertDiv = document.createElement('div');
-            alertDiv.id = 'custom-alert';
-            alertDiv.className = 'fixed top-4 right-4 bg-red-600 text-white p-4 rounded-lg shadow-xl z-[99] transition-opacity duration-300';
-            alertDiv.textContent = message;
-            document.body.appendChild(alertDiv);
-
-            // Auto-dismiss after 4 seconds
-            setTimeout(() => {
-                alertDiv.style.opacity = '0';
-                setTimeout(() => alertDiv.remove(), 300);
-            }, 4000);
-        }
-
-        // --- START APP ---
-        window.onload = initFirebase;
-    </script>
-</body>
-</html>
+            const filtered
