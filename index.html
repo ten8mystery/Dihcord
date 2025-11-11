@@ -82,11 +82,11 @@
                         
                         console.log("Authenticated. UID:", userId);
                         
-                        // FIX: Defer listener setup using setTimeout to allow the auth context to fully settle.
-                        setTimeout(() => {
-                            setupRealtimeListener(activeChatId);
-                            setupDmListListener(appId); 
-                        }, 0);
+                        // Call listeners directly now that auth is ready.
+                        // The functions themselves contain guards to ensure db/auth are defined.
+                        setupRealtimeListener(activeChatId);
+                        setupDmListListener(appId); 
+                        
 
                     } else {
                         userId = null;
@@ -126,6 +126,8 @@
 
         // Helper function to check if the new name is globally unique
         const isDisplayNameAvailable = async (appId, newName, currentUserId) => {
+            // Check if db is initialized before querying
+            if (!db) return false; 
             const usersRef = collection(db, `artifacts/${appId}/public/data/users`);
             // Query for any user profile with the exact newName
             const q = query(usersRef, where('displayName', '==', newName));
@@ -150,6 +152,7 @@
         }
         
         const fetchUserProfile = async (appId, uid) => {
+            if (!db) return; // Guard
             const userDocRef = doc(db, `artifacts/${appId}/public/data/users`, uid);
             try {
                 const userDoc = await getDoc(userDocRef); 
@@ -174,6 +177,7 @@
         }
 
         const saveUserProfileName = async (appId, uid, newName) => {
+             if (!db) return false; // Guard
              const userDocRef = doc(db, `artifacts/${appId}/public/data/users`, uid);
              try {
                  // Save the new name, ensuring the displayName field is updated for lookups
@@ -390,8 +394,11 @@
         // --- DM List Management ---
         
         const setupDmListListener = (appId) => {
-            // FIX: Guard against running before authentication is ready
-            if (!isAuthReady || !userId) return;
+            // HARDENED GUARD: Check if db is ready and user is authenticated
+            if (!db || !isAuthReady || !userId) {
+                console.log("DM List Listener skipped: DB or Auth not ready.");
+                return;
+            }
 
             // Path: /artifacts/{appId}/users/{userId}/dm_recipients (Private Collection)
             const path = `artifacts/${appId}/users/${userId}/dm_recipients`; 
@@ -413,6 +420,7 @@
         }
         
         const saveDmRecipient = async (initiatorId, recipientId, recipientName) => {
+             if (!db) return; // Guard
             try {
                 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
                 
@@ -445,6 +453,7 @@
 
         // Helper function to find User ID by Display Name
         const getUserIdByDisplayName = async (appId, searchName) => {
+             if (!db) return null; // Guard
             const usersRef = collection(db, `artifacts/${appId}/public/data/users`);
             const q = query(usersRef, where('displayName', '==', searchName));
             
@@ -549,10 +558,16 @@
         // --- Firestore Real-time Listener (Handles both General and DM) ---
 
         const setupRealtimeListener = (chatId) => {
-             // FIX: Guard against running before authentication is ready
-            if (!isAuthReady || !userId) {
-                 console.log("Firestore Listener skipped: Authentication not ready.");
+             // HARDENED GUARD: Check if db is ready and user is authenticated
+            if (!db || !isAuthReady || !userId) {
+                 console.log("Firestore Listener skipped: DB or Auth not ready.");
                  return;
+            }
+            
+            // Unsubscribe from any previous listener if it wasn't cleared by switchChat
+            if (unsubscribeChat) {
+                unsubscribeChat();
+                unsubscribeChat = null;
             }
 
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -583,8 +598,17 @@
             }, (error) => {
                 console.error("Error listening to Firestore:", error);
                 const chatBox = document.getElementById('chat-box');
+                // *** CRUCIAL: Display the exact error for debugging permission issues ***
                 if(chatBox) {
-                    chatBox.innerHTML = `<div class="p-4 text-center text-red-500">Error loading messages: ${error.message}</div>`;
+                    const errorMessage = error.message.includes('permission-denied') 
+                        ? "ERROR: Permission Denied. Your security rules might be too strict. Check your console for details." 
+                        : `ERROR: Failed to load chat. Message: ${error.message}`;
+                        
+                    chatBox.innerHTML = `
+                        <div class="p-4 text-center text-red-500 bg-red-900/50 rounded-lg border border-red-500">
+                            <strong>Firestore Error:</strong> ${errorMessage}
+                        </div>
+                    `;
                 }
             });
         }
@@ -603,6 +627,10 @@
         // --- Send Message Function (Handles Text, Media, General, and DM) ---
 
         window.sendMessage = async () => {
+             if (!db) {
+                 showNotification("Database not connected. Please wait or reload.", 'red');
+                 return;
+             }
             const input = document.getElementById('message-input');
             const content = input.value.trim();
 
@@ -661,8 +689,13 @@
             const chatBox = document.getElementById('chat-box');
             if (!chatBox) return;
             
-            chatBox.innerHTML = ''; 
-
+            // Filter out existing loading state if any
+            const existingError = chatBox.querySelector('.bg-red-900\\/50');
+            if (existingError) {
+                chatBox.innerHTML = '';
+            }
+            
+            // Check if messages is empty after filtering
             if (messages.length === 0) {
                 chatBox.innerHTML = `
                     <div class="p-4 text-center text-gray-500">
@@ -675,6 +708,8 @@
                 return;
             }
 
+            chatBox.innerHTML = ''; // Clear messages before re-rendering
+            
             messages.forEach(msg => {
                 const date = msg.timestamp ? new Date(msg.timestamp.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...';
                 
@@ -860,7 +895,9 @@
 
             <!-- Chat Messages -->
             <div id="chat-box" class="flex-grow overflow-y-auto p-4 space-y-3">
-                <!-- Messages will be rendered here -->
+                <div id="loading-state-chat" class="p-4 text-center text-indigo-400 animate-pulse">
+                        Loading # General Chat messages...
+                </div>
             </div>
 
             <!-- Message Input -->
