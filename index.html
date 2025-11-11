@@ -69,10 +69,6 @@
                 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
                 const firebaseConfigString = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
                 
-                if (firebaseConfigString === '{}' || firebaseConfigString === '') {
-                     console.warn("Firebase Config Status: The environment provided an empty or default config string. This will cause the initialization error.");
-                }
-
                 setLogLevel('error');
                 
                 const storedName = localStorage.getItem('chatDisplayName');
@@ -81,22 +77,33 @@
                 }
                 
                 let firebaseConfig = {};
+                let configValid = false;
+                
                 try {
                     firebaseConfig = JSON.parse(firebaseConfigString);
+                    configValid = Object.keys(firebaseConfig).length > 0;
                 } catch (e) {
                     console.error("Failed to parse Firebase configuration string:", e);
                 }
 
-                // 2. Initialize Firebase App
-                if (Object.keys(firebaseConfig).length === 0) {
+                // Check if configuration is missing (expected in editor)
+                if (!configValid) {
                     const loadingState = document.getElementById('loading-state');
                     if (loadingState) {
-                       loadingState.innerHTML = '<div class="flex items-center space-x-2"><svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg><span class="text-red-500 font-bold">Error: Firebase config is missing.</span></div>';
+                       // Friendly notice for the editor view
+                       loadingState.innerHTML = '<div class="flex items-center space-x-2"><svg class="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span class="text-yellow-500 font-bold">Notice: Awaiting Live Firebase Configuration.</span></div>';
                     }
-                    console.error("Firebase configuration is missing. Cannot initialize Firestore.");
-                    return;
+                    console.warn("Firebase config is missing. Showing login/signup form. This is expected outside the runtime environment.");
+                    
+                    // Since we can't initialize services, we must transition out of loading state.
+                    document.getElementById('loading-state').classList.add('hidden');
+                    document.getElementById('login-form').classList.remove('hidden');
+                    return; // Exit, as no further Firebase services can be initialized
                 }
                 
+                // --- If Config is VALID, proceed with initialization ---
+
+                // 2. Initialize Firebase App
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
@@ -151,7 +158,10 @@
 
             } catch (error) {
                 console.error("Error during Firebase initialization:", error);
-                document.getElementById('loading-state').innerHTML = `<span class="text-red-500">Error: ${error.message}</span>`;
+                // Ensure the login form appears even on unexpected errors
+                document.getElementById('loading-state').innerHTML = `<span class="text-red-500">Initialization Error: ${error.message}</span>`;
+                document.getElementById('loading-state').classList.add('hidden');
+                document.getElementById('login-form').classList.remove('hidden');
             }
         }
         
@@ -215,6 +225,10 @@
         // --- Login/Sign Up Logic (Logic remains the same) ---
 
         window.handleAuthAction = async (isSignup) => {
+            if (!auth) {
+                 showNotification("Authentication services are not initialized.", 'red');
+                 return;
+            }
             const emailInput = document.getElementById('auth-email');
             const passwordInput = document.getElementById('auth-password');
             const status = document.getElementById('auth-status');
@@ -255,6 +269,10 @@
         }
 
         window.handleLogout = async () => {
+             if (!auth) {
+                 showNotification("Authentication services are not initialized.", 'red');
+                 return;
+            }
             try {
                 await signOut(auth);
                 showNotification("Logged out successfully.", 'green');
