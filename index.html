@@ -155,7 +155,6 @@
         setLogLevel('Debug');
 
         // --- AUDIO CONFIG (IMPORTANT) ---
-        // NOTE: The browser environment prevents loading local files like 'sounds/noto.wav'.
         // You MUST replace the link below with a full HTTPS URL to your hosted file.
         const NOTIFICATION_SOUND_URL = "https://cdn.jsdelivr.net/gh/j-m/audio-assets@1.0.0/blop.mp3"; 
         document.getElementById('notification-sound').src = NOTIFICATION_SOUND_URL;
@@ -199,6 +198,9 @@
         
         // --- IMAGE STATE VARIABLE ---
         let selectedImageBase64 = null;
+        
+        // --- AUDIO STATE VARIABLE ---
+        let audioWarned = false;
 
 
         // DOM Elements
@@ -435,6 +437,10 @@
             imageUploadInput.addEventListener('change', handleImageUpload);
             cancelImageBtn.addEventListener('click', cancelImage);
             
+            // --- AUDIO FIX: UNLOCK LISTENER ---
+            // Tries to unlock the browser's audio context on first click interaction
+            document.body.addEventListener('click', attemptAudioUnlock, { once: true });
+            
             userList.addEventListener('click', (e) => {
                 const target = e.target.closest('.remove-user-btn');
                 if (target) {
@@ -456,6 +462,19 @@
                          addUserToDMs(user);
                      }
                  }
+            });
+        }
+        
+        /**
+         * Attempts to play a silent sound to initialize the browser audio context.
+         */
+        function attemptAudioUnlock() {
+            notificationSound.volume = 0;
+            notificationSound.play().then(() => {
+                notificationSound.volume = 1;
+                console.log("Audio context successfully unlocked by user interaction.");
+            }).catch(e => {
+                console.warn("Initial audio unlock attempt failed or was not necessary.", e);
             });
         }
         
@@ -769,6 +788,26 @@
             }
         }
         
+        /**
+         * Plays the notification sound, adding a user-friendly warning if it fails 
+         * due to browser audio policy restrictions.
+         */
+        function playSound() {
+            if (notificationSound) {
+                notificationSound.currentTime = 0; 
+                notificationSound.play().then(() => {
+                    // Audio played successfully
+                }).catch(error => {
+                    if (!audioWarned) {
+                        // Display a user alert only once if playback fails due to user interaction requirement
+                        alertUser("🔔 Notification sounds are blocked. Click anywhere in the app to enable them!");
+                        audioWarned = true;
+                        console.warn("Audio playback blocked. User interaction required to enable sound.", error);
+                    }
+                });
+            }
+        }
+
         function renderMessages(messages) {
             messageContainer.innerHTML = '';
 
@@ -883,15 +922,6 @@
             }
         }
         
-        function playSound() {
-            if (notificationSound) {
-                notificationSound.currentTime = 0; 
-                notificationSound.play().catch(error => {
-                    console.warn("Could not play notification sound. User interaction required first.", error);
-                });
-            }
-        }
-
         // --- UTILITY FUNCTIONS ---
 
         function formatTimestamp(timestamp) {
@@ -906,7 +936,8 @@
 
             const alertDiv = document.createElement('div');
             alertDiv.id = 'custom-alert';
-            alertDiv.className = 'fixed top-4 right-4 bg-red-600 text-white p-4 rounded-lg shadow-xl z-[99] transition-opacity duration-300';
+            // Use yellow for warning
+            alertDiv.className = 'fixed top-4 right-4 bg-yellow-500 text-gray-800 p-4 rounded-lg shadow-xl z-[99] transition-opacity duration-300 font-semibold';
             alertDiv.textContent = message;
             document.body.appendChild(alertDiv);
 
