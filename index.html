@@ -141,7 +141,7 @@
 
         // --- Configuration Logic for Robust External Hosting ---
 
-        // Standard configuration for the canvas environment (used as a reliable fallback)
+        // 1. Define the Standard Fallback Configuration (Must be hardcoded for Vercel/external hosting)
         const FALLBACK_FIREBASE_CONFIG = {
             apiKey: "AIzaSyAeN72Y5DfDR60psO_YkS_H-9PF0bu0QBs",
             authDomain: "dihbackend.firebaseapp.com",
@@ -154,16 +154,29 @@
         
         // Use environment's appId or a static ID for external deployment pathing
         const appId = envAppId || 'external-dm-app-id'; 
-        let firebaseConfig;
+        let firebaseConfig = FALLBACK_FIREBASE_CONFIG; // Start with the fallback
 
         try {
-            // 1. Try to use environment config (for Canvas)
-            firebaseConfig = envFirebaseConfig ? JSON.parse(envFirebaseConfig) : FALLBACK_FIREBASE_CONFIG;
+            // 2. ONLY overwrite with environment config if it exists and is valid JSON
+            if (envFirebaseConfig) {
+                const parsedConfig = JSON.parse(envFirebaseConfig);
+                if (parsedConfig && parsedConfig.apiKey) {
+                    firebaseConfig = parsedConfig;
+                    console.log("Using environment Firebase config.");
+                }
+            }
         } catch (e) {
-            // 2. Fallback if JSON parsing fails (e.g., if env var is missing/malformed)
-            console.warn("Could not parse environment config. Using fallback Firebase configuration.");
-            firebaseConfig = FALLBACK_FIREBASE_CONFIG;
+            console.warn("Error parsing environment config. Using fallback configuration.", e);
+            // firebaseConfig remains FALLBACK_FIREBASE_CONFIG
         }
+        
+        if (!firebaseConfig.apiKey) {
+            console.error("CRITICAL ERROR: Firebase API Key is missing.");
+            document.getElementById('loading-screen').innerHTML = '<p class="text-red-400">CRITICAL ERROR: Missing Firebase Configuration. Check console for details.</p>';
+            // Removed illegal 'return;' statement here. Execution will be stopped by 
+            // the conditional check around initFirebase() at the bottom of the script.
+        }
+
 
         let app, db, auth;
         let currentUserId = null;
@@ -176,12 +189,7 @@
 
         async function initFirebase() {
             setLogLevel('Debug');
-            if (!firebaseConfig || !firebaseConfig.apiKey) {
-                console.error("Firebase config is missing or invalid.");
-                document.getElementById('loading-screen').innerHTML = '<p class="text-red-400">Error: Firebase configuration is missing or invalid.</p>';
-                return;
-            }
-
+            
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
             db = getFirestore(app);
@@ -193,7 +201,7 @@
                     await signInWithCustomToken(auth, initialAuthToken);
                 } else {
                     // Fallback to anonymous sign-in (External hosting like Vercel)
-                    console.log("No custom auth token found. Signing in anonymously for external deployment.");
+                    console.log("No custom auth token found. Signing in anonymously.");
                     await signInAnonymously(auth);
                 }
             } catch (error) {
@@ -536,7 +544,12 @@
         }
 
         // --- Start Application ---
-        initFirebase();
+        // Only initialize Firebase if the configuration is confirmed to be valid
+        if (firebaseConfig.apiKey) {
+            initFirebase();
+        } else {
+            console.error("Application cannot start: Firebase config is invalid or missing API key.");
+        }
     </script>
 </body>
 </html>
