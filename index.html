@@ -606,6 +606,79 @@ showLoginBtn.addEventListener('click', () => switchAuthForm('login'));
 showRegisterBtn.addEventListener('click', () => switchAuthForm('register'));
 
 // --- END AUTHENTICATION SCREEN SWITCH LOGIC ---
+        // --- NEW: LOGIN AND REGISTER FUNCTIONALITY ---
+
+// Handles the Login button click
+loginBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    loginError.classList.add('hidden'); // Hide previous error
+    const email = loginEmail.value.trim();
+    const password = loginPassword.value.trim();
+
+    if (!email || !password) {
+        loginError.textContent = "Please enter both email and password.";
+        loginError.classList.remove('hidden');
+        return;
+    }
+
+    try {
+        // Firebase Auth: Sign in
+        await signInWithEmailAndPassword(auth, email, password);
+        // onAuthStateChanged will handle the rest (like showing the main app)
+    } catch (error) {
+        console.error("Login failed:", error.code, error.message);
+        let message = "Login failed. Check your email and password.";
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+             message = "Invalid email or password.";
+        }
+        loginError.textContent = message;
+        loginError.classList.remove('hidden');
+    }
+});
+
+
+// Handles the Register button click
+registerBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    registerError.classList.add('hidden'); // Hide previous error
+    const email = registerEmail.value.trim();
+    const password = registerPassword.value.trim();
+
+    if (password.length < 6) {
+        registerError.textContent = "Password must be at least 6 characters.";
+        registerError.classList.remove('hidden');
+        return;
+    }
+
+    try {
+        // Firebase Auth: Create user
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        // NEW USER SETUP: Create a user document in Firestore
+        await setDoc(doc(db, "users", user.uid), {
+            uid: user.uid,
+            email: user.email,
+            // Prompt user for username later via the modal logic in the full app
+            username: "NewUser" + Math.floor(Math.random() * 10000), 
+            profilePicture: DEFAULT_PROFILE_PIC,
+            createdAt: serverTimestamp(),
+            lastActive: serverTimestamp()
+        });
+        
+        // onAuthStateChanged will handle the rest (like showing the main app)
+    } catch (error) {
+        console.error("Registration failed:", error.code, error.message);
+        let message = "Registration failed. Please try a different email.";
+        if (error.code === 'auth/email-already-in-use') {
+             message = "This email is already registered.";
+        }
+        registerError.textContent = message;
+        registerError.classList.remove('hidden');
+    }
+});
+
+// --- END LOGIN AND REGISTER FUNCTIONALITY ---
         // --- NOTIFICATION DOM Elements ---
         const settingsNotificationBtn = document.getElementById('settings-notification-btn');
         const settingsNotificationBtnText = document.getElementById('settings-notification-btn-text');
