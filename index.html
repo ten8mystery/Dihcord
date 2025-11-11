@@ -15,6 +15,16 @@
             background-color: #1f2937;
             color: #f3f4f6;
         }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #4b5563;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background-color: #1f2937;
+        }
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
@@ -112,23 +122,22 @@
 
         let firebaseConfig, appId, initialAuthToken;
 
-        // Check for Canvas environment variables
+        // Prioritize the environment variables, but fall back to the provided hardcoded config.
+        firebaseConfig = FALLBACK_FIREBASE_CONFIG;
+        appId = FALLBACK_APP_ID;
+        initialAuthToken = null;
+
         if (typeof __firebase_config !== 'undefined' && __firebase_config) {
             try {
+                // If environment config is available, use it.
                 firebaseConfig = JSON.parse(__firebase_config);
                 appId = typeof __app_id !== 'undefined' ? __app_id : FALLBACK_APP_ID;
                 initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
             } catch (e) {
-                console.error("Error parsing __firebase_config. Using fallback.", e);
-                firebaseConfig = FALLBACK_FIREBASE_CONFIG;
-                appId = FALLBACK_APP_ID;
-                initialAuthToken = null;
+                console.warn("Error parsing environment config. Using fallback.", e);
             }
         } else {
-            console.warn("Canvas environment variables not found. Using fallback configuration.");
-            firebaseConfig = FALLBACK_FIREBASE_CONFIG;
-            appId = FALLBACK_APP_ID;
-            initialAuthToken = null;
+            console.warn("Environment variables not found. Using hardcoded config.");
         }
 
         let app, db, auth;
@@ -185,17 +194,25 @@
                 statusMessage.textContent = "Authenticating...";
 
                 // Attempt custom sign-in first (for Canvas environment)
-                if (initialAuthToken) {
-                    try {
+                try {
+                    if (initialAuthToken) {
                         await signInWithCustomToken(auth, initialAuthToken);
-                    } catch (e) {
-                        console.warn("Custom token sign-in failed, falling back to anonymous.", e);
+                    } else {
+                        // Fallback to anonymous sign-in if no token is available (for external hosting)
                         await signInAnonymously(auth);
                     }
-                } else {
-                    // Always sign in anonymously if no token is available (for external hosting)
-                    await signInAnonymously(auth);
+                } catch (e) {
+                    console.warn("Primary sign-in failed. Attempting anonymous sign-in as fallback.", e);
+                    // Critical fallback: try anonymous again even if the primary path failed
+                    try {
+                         await signInAnonymously(auth);
+                    } catch (finalError) {
+                        console.error("CRITICAL ERROR: Failed to log in with custom or anonymous credentials.", finalError);
+                        statusMessage.textContent = "CRITICAL ERROR: Failed to log in. Check console and security rules.";
+                        return; // Stop execution if auth fails critically
+                    }
                 }
+
 
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
@@ -203,10 +220,9 @@
                         statusMessage.textContent = "Authenticated. Checking profile...";
                         await checkAndSetupUserProfile();
                     } else {
-                        console.error("CRITICAL ERROR: Failed to log in with custom or anonymous credentials.");
-                        statusMessage.textContent = "CRITICAL ERROR: Failed to log in. Check security rules.";
-                        loadingScreen.style.opacity = '1';
-                        loadingScreen.classList.remove('hidden');
+                        // This case should be rare if the above try/catch logic is correct
+                        console.error("Auth state is null after sign-in attempt.");
+                        statusMessage.textContent = "CRITICAL ERROR: Failed to authenticate user.";
                     }
                 });
 
@@ -237,12 +253,12 @@
                 loadingScreen.classList.add('hidden');
                 profileModal.classList.remove('hidden');
                 
-                saveProfileBtn.addEventListener('click', saveProfile, { once: true });
+                saveProfileBtn.addEventListener('click', saveProfile);
                 usernameInput.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter') {
                         saveProfile();
                     }
-                }, { once: true });
+                });
             }
         }
 
@@ -275,7 +291,6 @@
             } catch (error) {
                 console.error("Error setting user profile:", error);
                 alertUser("Failed to save profile. Try again.");
-                saveProfileBtn.addEventListener('click', saveProfile, { once: true }); // Re-enable click listener
             }
         }
 
@@ -402,7 +417,11 @@
                 const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 
                 // Sort by timestamp client-side
-                messages.sort((a, b) => a.timestamp - b.timestamp);
+                messages.sort((a, b) => {
+                    const timeA = a.timestamp && a.timestamp.seconds ? a.timestamp.seconds : 0;
+                    const timeB = b.timestamp && b.timestamp.seconds ? b.timestamp.seconds : 0;
+                    return timeA - timeB;
+                });
 
                 renderMessages(messages);
             }, (error) => {
