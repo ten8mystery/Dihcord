@@ -401,4 +401,182 @@
         function renderUserList(users, searchTerm) {
             userList.innerHTML = '';
             
-            const filtered
+            const filteredUsers = users.filter(user => 
+                user.username.toLowerCase().includes(searchTerm) || user.userId.toLowerCase().includes(searchTerm)
+            );
+
+            if (filteredUsers.length === 0) {
+                userList.innerHTML = `<p class="text-center text-gray-500 p-4">No users found.</p>`;
+                return;
+            }
+
+            filteredUsers.forEach(user => {
+                const userItem = document.createElement('div');
+                userItem.className = `p-3 cursor-pointer border-b border-gray-700 hover:bg-gray-700 transition duration-150 ${selectedUser && selectedUser.userId === user.userId ? 'bg-indigo-700 hover:bg-indigo-800' : ''}`;
+                userItem.innerHTML = `
+                    <p class="font-semibold text-white">${user.username}</p>
+                    <p class="text-xs text-gray-400 truncate">ID: ${user.userId}</p>
+                `;
+                userItem.onclick = () => selectUser(user);
+                userList.appendChild(userItem);
+            });
+        }
+
+
+        /**
+         * Handles selecting a user to start a conversation.
+         */
+        function selectUser(user) {
+            if (selectedUser && selectedUser.userId === user.userId) return; // Already selected
+            
+            selectedUser = user;
+            
+            // Update UI elements
+            chatHeader.innerHTML = `<p class="text-lg font-bold text-white">${selectedUser.username}</p><p class="text-xs text-gray-400">ID: ${selectedUser.userId}</p>`;
+            messageInputArea.classList.remove('hidden');
+            messageContainer.innerHTML = '<p class="text-center text-gray-500 italic p-4">Loading messages...</p>';
+            
+            // Re-render the user list to highlight the selected user
+            renderUserList(usersArray, userSearchInput.value.toLowerCase());
+            
+            // Start listening to the messages for this chat
+            listenToMessages(selectedUser.userId);
+        }
+
+        let unsubscribeMessages = null;
+
+        /**
+         * Listens to real-time updates for messages between the current and selected user.
+         */
+        function listenToMessages(otherUserId) {
+            if (unsubscribeMessages) unsubscribeMessages(); // Unsubscribe from previous chat
+
+            const chatId = getChatDocId(currentUserId, otherUserId);
+            const messagesRef = getMessagesCollectionRef(chatId);
+            
+            // NOTE: We only use the collection reference for stability and avoid creating indexes.
+            unsubscribeMessages = onSnapshot(messagesRef, (snapshot) => {
+                const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+                // Sort by timestamp client-side for ultra-robustness
+                messages.sort((a, b) => {
+                    const timeA = a.timestamp && a.timestamp.seconds ? a.timestamp.seconds : 0;
+                    const timeB = b.timestamp && b.timestamp.seconds ? b.timestamp.seconds : 0;
+                    return timeA - timeB;
+                });
+
+                renderMessages(messages);
+            }, (error) => {
+                console.error("FIRESTORE MESSAGE ERROR (Check console for index needs):", error);
+                messageContainer.innerHTML = `<p class="text-center text-red-400 p-4">Error loading messages. Check console for details.</p>`;
+            });
+        }
+
+        /**
+         * Renders the messages in the chat window.
+         */
+        function renderMessages(messages) {
+            messageContainer.innerHTML = '';
+
+            if (messages.length === 0) {
+                messageContainer.innerHTML = '<p class="text-center text-gray-500 italic p-4">No messages yet. Start the conversation!</p>';
+                return;
+            }
+
+            messages.forEach(msg => {
+                const isSender = msg.senderId === currentUserId;
+                
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `flex ${isSender ? 'justify-end' : 'justify-start'}`;
+                
+                const bubble = document.createElement('div');
+                bubble.className = `max-w-xs md:max-w-md lg:max-w-lg p-3 rounded-xl shadow-md ${
+                    isSender 
+                    ? 'bg-indigo-600 text-white rounded-br-none' 
+                    : 'bg-gray-700 text-gray-100 rounded-tl-none'
+                }`;
+                
+                // Use currentUsername for the sender's display name to ensure changes are reflected
+                const displayName = isSender ? currentUsername : selectedUser.username;
+
+                bubble.innerHTML = `
+                    <p class="text-sm font-semibold mb-1">${displayName}</p>
+                    <p class="text-sm break-words">${msg.text}</p>
+                    <p class="text-xs mt-1 opacity-75 text-right">${formatTimestamp(msg.timestamp)}</p>
+                `;
+
+                messageDiv.appendChild(bubble);
+                messageContainer.appendChild(messageDiv);
+            });
+
+            // Scroll to bottom after rendering new messages
+            messageContainer.scrollTop = messageContainer.scrollHeight;
+        }
+
+        /**
+         * Sends a new message to the selected user.
+         */
+        async function sendMessage() {
+            if (!selectedUser) return;
+            
+            const text = messageInput.value.trim();
+            if (text === "") return;
+
+            const chatId = getChatDocId(currentUserId, selectedUser.userId);
+            const messagesRef = getMessagesCollectionRef(chatId);
+
+            try {
+                // Add the new message document
+                await addDoc(messagesRef, {
+                    senderId: currentUserId,
+                    senderUsername: currentUsername, // Save the current name, although not strictly needed for rendering
+                    receiverId: selectedUser.userId,
+                    text: text,
+                    timestamp: serverTimestamp()
+                });
+
+                messageInput.value = ''; // Clear input field
+
+            } catch (error) {
+                console.error("Error sending message:", error);
+                alertUser("Failed to send message. Please try again.");
+            }
+        }
+
+        // --- UTILITY FUNCTIONS ---
+
+        /**
+         * Simple timestamp formatter.
+         */
+        function formatTimestamp(timestamp) {
+            if (!timestamp) return 'Sending...';
+            // Use client-side date if server timestamp is not yet populated
+            const date = timestamp.toDate ? timestamp.toDate() : new Date();
+            return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+        }
+        
+        /**
+         * Custom alert message box instead of alert().
+         */
+        function alertUser(message) {
+            const existingAlert = document.getElementById('custom-alert');
+            if (existingAlert) existingAlert.remove();
+
+            const alertDiv = document.createElement('div');
+            alertDiv.id = 'custom-alert';
+            alertDiv.className = 'fixed top-4 right-4 bg-red-600 text-white p-4 rounded-lg shadow-xl z-[99] transition-opacity duration-300';
+            alertDiv.textContent = message;
+            document.body.appendChild(alertDiv);
+
+            // Auto-dismiss after 4 seconds
+            setTimeout(() => {
+                alertDiv.style.opacity = '0';
+                setTimeout(() => alertDiv.remove(), 300);
+            }, 4000);
+        }
+
+        // --- START APP ---
+        window.onload = initFirebase;
+    </script>
+</body>
+</html>
