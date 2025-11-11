@@ -134,34 +134,43 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, addDoc, setDoc, onSnapshot, collection, query, where, orderBy, limit, serverTimestamp, setLogLevel, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Global variables provided by the environment
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        
-        // Define Firebase configuration based on environment variables, with a fallback
-        let firebaseConfig;
-        try {
-            firebaseConfig = JSON.parse(__firebase_config);
-        } catch (e) {
-            console.warn("Could not parse __firebase_config. Falling back to hardcoded config provided by the user.");
-            firebaseConfig = {
-                apiKey: "AIzaSyAeN72Y5DfDR60psO_YkS_H-9PF0bu0QBs",
-                authDomain: "dihbackend.firebaseapp.com",
-                projectId: "dihbackend",
-                storageBucket: "dihbackend.firebasestorage.app",
-                messagingSenderId: "136423198603",
-                appId: "1:136423198603:web:953bcd9ee925b6664ce98e",
-                measurementId: "G-PSGVGZYGTD"
-            };
-        }
-        
+        // Global variables provided by the environment (may be undefined on external hosting)
+        const envAppId = typeof __app_id !== 'undefined' ? __app_id : null;
+        const envFirebaseConfig = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // --- Configuration Logic for Robust External Hosting ---
+
+        // Standard configuration for the canvas environment (used as a reliable fallback)
+        const FALLBACK_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyAeN72Y5DfDR60psO_YkS_H-9PF0bu0QBs",
+            authDomain: "dihbackend.firebaseapp.com",
+            projectId: "dihbackend",
+            storageBucket: "dihbackend.firebasestorage.app",
+            messagingSenderId: "136423198603",
+            appId: "1:136423198603:web:953bcd9ee925b6664ce98e",
+            measurementId: "G-PSGVGZYGTD"
+        };
+        
+        // Use environment's appId or a static ID for external deployment pathing
+        const appId = envAppId || 'external-dm-app-id'; 
+        let firebaseConfig;
+
+        try {
+            // 1. Try to use environment config (for Canvas)
+            firebaseConfig = envFirebaseConfig ? JSON.parse(envFirebaseConfig) : FALLBACK_FIREBASE_CONFIG;
+        } catch (e) {
+            // 2. Fallback if JSON parsing fails (e.g., if env var is missing/malformed)
+            console.warn("Could not parse environment config. Using fallback Firebase configuration.");
+            firebaseConfig = FALLBACK_FIREBASE_CONFIG;
+        }
 
         let app, db, auth;
         let currentUserId = null;
         let currentUsername = null;
-        let currentRecipient = null; // { userId: '...', username: '...' }
+        let currentRecipient = null; 
         let unsubscribeMessages = null;
-        let allUsers = []; // Stores all fetched users for local search
+        let allUsers = []; 
 
         // --- Firebase Initialization and Auth ---
 
@@ -179,9 +188,12 @@
 
             // 1. Sign In
             try {
+                // Prioritize custom token (Canvas environment)
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
                 } else {
+                    // Fallback to anonymous sign-in (External hosting like Vercel)
+                    console.log("No custom auth token found. Signing in anonymously for external deployment.");
                     await signInAnonymously(auth);
                 }
             } catch (error) {
@@ -207,6 +219,7 @@
         // --- User Profile Management ---
 
         function getUserProfileDocRef(userId) {
+            // Uses the robustly defined 'appId'
             return doc(db, 'artifacts', appId, 'public', 'data', 'users', userId);
         }
 
@@ -235,7 +248,8 @@
 
         document.getElementById('profile-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const username = document.getElementById('username-input').value.trim();
+            const inputElement = document.getElementById('username-input');
+            const username = inputElement.value.trim();
             const errorElement = document.getElementById('profile-error');
 
             if (!username) {
