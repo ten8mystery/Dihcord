@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dihcord</title>
+    <title>Dihcord: Private DMs</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Use Inter font -->
@@ -56,19 +56,19 @@
         <!-- Left Sidebar (User List) -->
         <div class="w-1/3 border-r border-gray-700 flex flex-col bg-gray-900">
             <div class="p-4 border-b border-gray-700">
-                <h1 class="text-2xl font-bold text-white">Direct Messages</h1>
+                <h1 class="text-2xl font-bold text-white">Recent DMs</h1>
                 <p id="current-user-info" class="text-xs text-gray-400 mt-1"></p>
             </div>
             
             <!-- User Search Input -->
             <div class="p-3 border-b border-gray-700">
-                <input type="text" id="user-search-input" placeholder="Search users by name..." class="w-full p-2 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition duration-150 text-sm">
+                <input type="text" id="user-search-input" placeholder="Search recent DMs..." class="w-full p-2 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition duration-150 text-sm">
             </div>
 
             <!-- User List -->
             <div id="user-list" class="flex-grow overflow-y-auto custom-scrollbar">
                 <!-- User items will be dynamically inserted here -->
-                <p class="text-center text-gray-500 p-4">Loading users...</p>
+                <p class="text-center text-gray-500 p-4">Start by sending or receiving a message!</p>
             </div>
             
             <!-- Profile Settings Button -->
@@ -109,33 +109,28 @@
     </div>
     
     <!-- Hidden Audio Element for Notifications -->
-    <!-- The source below is a public placeholder. Replace it with the full HTTPS URL
-         to your hosted 'noto.wav' file (e.g., if hosted on GitHub, use the Raw URL).
-         Direct repository paths (e.g., 'sounds/noto.wav') will not work in the browser. -->
     <audio id="notification-sound" preload="auto">
-        <source src="/sounds/noto.wav" type="audio/wav">
+        <!-- Source is set dynamically in the JavaScript to handle hosting limitations -->
     </audio>
 
     <!-- Firebase Imports -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, query, where, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Set Firebase logging level for debugging
         setLogLevel('Debug');
 
-        // --- AUDIO CONFIG ---
-        // INSTRUCTIONS: Replace the URL below with the publicly accessible HTTPS URL
-        // of your 'noto.wav' file. A local path like 'sounds/noto.wav' will be blocked by the browser.
+        // --- AUDIO CONFIG (IMPORTANT) ---
+        // NOTE: The browser environment prevents loading local files like 'sounds/noto.wav'.
+        // You MUST replace the link below with a full HTTPS URL to your hosted file.
         const NOTIFICATION_SOUND_URL = "https://cdn.jsdelivr.net/gh/j-m/audio-assets@1.0.0/blop.mp3"; 
-
         // Update the audio element source
         document.getElementById('notification-sound').src = NOTIFICATION_SOUND_URL;
 
         // --- GLOBAL VARIABLES (Provided by Environment or Fallback) ---
-        // Vercel/External Hosting Fallback Config
         const FALLBACK_FIREBASE_CONFIG = {
             apiKey: "AIzaSyAeN72Y5DfDR60psO_YkS_H-9PF0bu0QBs",
             authDomain: "dihbackend.firebaseapp.com",
@@ -148,15 +143,12 @@
         const FALLBACK_APP_ID = 'external-dm-app-id';
 
         let firebaseConfig, appId, initialAuthToken;
-
-        // Prioritize the environment variables, but fall back to the provided hardcoded config.
         firebaseConfig = FALLBACK_FIREBASE_CONFIG;
         appId = FALLBACK_APP_ID;
         initialAuthToken = null;
 
         if (typeof __firebase_config !== 'undefined' && __firebase_config) {
             try {
-                // If environment config is available, use it.
                 firebaseConfig = JSON.parse(__firebase_config);
                 appId = typeof __app_id !== 'undefined' ? __app_id : FALLBACK_APP_ID;
                 initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
@@ -171,6 +163,11 @@
         let currentUserId = null;
         let currentUsername = "Guest";
         let selectedUser = null; // The user object of the person currently being chatted with
+        
+        // Data stores
+        let allUsersMap = new Map(); // All user profiles (key: userId, value: {username, ...})
+        let currentRecentDMs = {}; // Current user's recent DM list { [otherUserId]: { lastMessageTimestamp, removed } }
+
 
         // DOM Elements
         const loadingScreen = document.getElementById('loading-screen');
@@ -189,15 +186,13 @@
         const currentUserInfo = document.getElementById('current-user-info');
         const userSearchInput = document.getElementById('user-search-input');
         const changeNameBtn = document.getElementById('change-name-btn');
-        const notificationSound = document.getElementById('notification-sound'); // Added reference
+        const notificationSound = document.getElementById('notification-sound');
 
 
         // --- FIRESTORE PATHS ---
-        // All data is public for easy real-time collaboration and discovery.
         const getUserDocRef = (userId) => doc(db, 'artifacts', appId, 'public', 'data', 'users', userId);
         const getUsersCollectionRef = () => collection(db, 'artifacts', appId, 'public', 'data', 'users');
         
-        // Chat ID is ordered alphabetically by the two user IDs (user1Id_user2Id)
         const getChatDocId = (user1Id, user2Id) => {
             const sortedIds = [user1Id, user2Id].sort();
             return sortedIds.join('_');
@@ -206,9 +201,6 @@
 
         // --- AUTH & INITIALIZATION ---
 
-        /**
-         * Initializes Firebase and authenticates the user.
-         */
         async function initFirebase() {
             try {
                 if (!firebaseConfig || !firebaseConfig.apiKey) {
@@ -224,36 +216,30 @@
 
                 statusMessage.textContent = "Authenticating...";
 
-                // Attempt custom sign-in first (for Canvas environment)
                 try {
                     if (initialAuthToken) {
                         await signInWithCustomToken(auth, initialAuthToken);
                     } else {
-                        // Fallback to anonymous sign-in if no token is available (for external hosting)
                         await signInAnonymously(auth);
                     }
                 } catch (e) {
                     console.warn("Primary sign-in failed. Attempting anonymous sign-in as fallback.", e);
-                    // Critical fallback: try anonymous again even if the primary path failed
                     try {
                          await signInAnonymously(auth);
                     } catch (finalError) {
-                        console.error("CRITICAL ERROR: Failed to log in with custom or anonymous credentials.", finalError);
+                        console.error("CRITICAL ERROR: Failed to log in.", finalError);
                         statusMessage.textContent = "CRITICAL ERROR: Failed to log in. Check console and security rules.";
-                        return; // Stop execution if auth fails critically
+                        return;
                     }
                 }
-
 
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         currentUserId = user.uid;
                         statusMessage.textContent = "Authenticated. Checking profile...";
                         await checkAndSetupUserProfile();
-                        // Setup the change name button listener right after auth
                         changeNameBtn.addEventListener('click', () => showProfileModal(true));
                     } else {
-                        // This case should be rare if the above try/catch logic is correct
                         console.error("Auth state is null after sign-in attempt.");
                         statusMessage.textContent = "CRITICAL ERROR: Failed to authenticate user.";
                     }
@@ -265,9 +251,6 @@
             }
         }
 
-        /**
-         * Checks if the user has a profile (username) and prompts setup if necessary.
-         */
         async function checkAndSetupUserProfile() {
             const userDocRef = getUserDocRef(currentUserId);
             const userDoc = await getDoc(userDocRef);
@@ -275,41 +258,32 @@
             if (userDoc.exists()) {
                 const userData = userDoc.data();
                 currentUsername = userData.username;
-                console.log(`User logged in as: ${currentUsername} (${currentUserId})`);
+                currentRecentDMs = userData.recentDMs || {}; // Load recent DMs
                 currentUserInfo.textContent = `User ID: ${currentUserId}`;
                 
-                // Hide loading screen and start main app functionality
                 hideLoadingScreen();
                 startAppListeners();
             } else {
-                // Show initial profile setup modal
                 loadingScreen.classList.add('hidden');
                 showProfileModal(false);
             }
         }
 
-        /**
-         * Shows the profile setup/change modal.
-         * @param {boolean} isChange Whether this is a profile change or initial setup.
-         */
         function showProfileModal(isChange) {
             if (isChange) {
                 profileModalTitle.textContent = "Change Your Username";
                 profileModalText.textContent = "Enter a new username. It will update immediately for everyone.";
-                usernameInput.value = currentUsername; // Pre-fill with current name
+                usernameInput.value = currentUsername;
             } else {
                 profileModalTitle.textContent = "Set Up Your Profile";
                 profileModalText.textContent = "Please choose a unique username to start chatting.";
-                usernameInput.value = ''; // Clear for initial setup
+                usernameInput.value = '';
             }
 
             profileModal.classList.remove('hidden');
             usernameInput.focus();
         }
 
-        /**
-         * Saves the user's chosen username to Firestore.
-         */
         async function saveProfile() {
             const username = usernameInput.value.trim();
             if (username.length < 3) {
@@ -318,22 +292,22 @@
             }
 
             try {
-                const isInitialSetup = profileModal.classList.contains('hidden'); // Check if it was initially hidden
+                const isInitialSetup = profileModal.classList.contains('hidden');
 
-                // Save user data (This uses setDoc which creates if not exists)
-                await setDoc(getUserDocRef(currentUserId), {
+                // Ensure the recentDMs structure is preserved on merge
+                const userDataToSave = {
                     userId: currentUserId,
                     username: username,
                     createdAt: serverTimestamp(),
-                    lastSeen: serverTimestamp()
-                }, { merge: true }); // Use merge so we don't overwrite existing data
+                    lastSeen: serverTimestamp(),
+                };
 
-                
+                await setDoc(getUserDocRef(currentUserId), userDataToSave, { merge: true });
+
                 currentUsername = username;
                 currentUserInfo.textContent = `User ID: ${currentUserId}`;
                 profileModal.classList.add('hidden');
                 
-                // If it was initial setup, start listeners. If it was a change, they are already running.
                 if (!isInitialSetup) {
                     startAppListeners();
                 }
@@ -352,174 +326,255 @@
         }
 
         function startAppListeners() {
-            // 1. Setup modal save listeners once
             saveProfileBtn.addEventListener('click', saveProfile);
             usernameInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    saveProfile();
-                }
+                if (e.key === 'Enter') { saveProfile(); }
             });
             
-            // 2. Listen for user list updates
-            listenToUserList();
+            // Start listening to ALL user profiles (to get names for the list)
+            listenToAllUsers();
             
-            // 3. Add search functionality
+            // Start listening to the CURRENT user's profile (to get recentDMs list)
+            listenToCurrentUserData();
+            
             userSearchInput.addEventListener('input', () => {
-                const searchTerm = userSearchInput.value.toLowerCase();
-                renderUserList(usersArray, searchTerm); 
+                renderUserList(); 
             });
 
-            // 4. Add send message listener
             sendButton.addEventListener('click', sendMessage);
             messageInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    sendMessage();
-                }
+                if (e.key === 'Enter') { sendMessage(); }
             });
-        }
-
-        let usersArray = [];
-        let unsubscribeUserList = null;
-
-        /**
-         * Listens to real-time updates for all users.
-         */
-        function listenToUserList() {
-            if (unsubscribeUserList) unsubscribeUserList();
-
-            const usersRef = getUsersCollectionRef();
-            const usersQuery = query(usersRef);
-
-            unsubscribeUserList = onSnapshot(usersQuery, (snapshot) => {
-                usersArray = snapshot.docs.map(doc => doc.data()).filter(user => user.userId !== currentUserId);
-                
-                // Sort by username client-side
-                usersArray.sort((a, b) => a.username.localeCompare(b.username));
-
-                // Re-render the list with the current search term
-                const searchTerm = userSearchInput.value.toLowerCase();
-                renderUserList(usersArray, searchTerm);
-                
-                // If the selected user's name changed, update the header immediately
-                if (selectedUser) {
-                    const updatedUser = usersArray.find(u => u.userId === selectedUser.userId);
-                    if (updatedUser && updatedUser.username !== selectedUser.username) {
-                        selectedUser = updatedUser; // Update the local selectedUser object
-                        chatHeader.innerHTML = `<p class="text-lg font-bold text-white">${selectedUser.username}</p><p class="text-xs text-gray-400">ID: ${selectedUser.userId}</p>`;
-                        // Re-render messages to update sender names if the current user changed their name
-                        if (currentUserId === updatedUser.userId) {
-                             // Force a message re-render to update the sender name on all current user messages
-                             if (unsubscribeMessages) {
-                                // This is a bit of a hack: re-subscribing forces a full data fetch/render
-                                const tempSelectedId = selectedUser.userId;
-                                unsubscribeMessages();
-                                listenToMessages(tempSelectedId);
-                             }
-                        }
+            
+            // Set up event delegation for remove buttons (since they are dynamic)
+            userList.addEventListener('click', (e) => {
+                const target = e.target.closest('.remove-user-btn');
+                if (target) {
+                    e.stopPropagation(); // Prevent selecting the user when clicking 'X'
+                    const targetUserId = target.getAttribute('data-userid');
+                    if (targetUserId) {
+                        removeRecentDm(targetUserId);
                     }
                 }
-
-            }, (error) => {
-                console.error("Error listening to user list:", error);
-                userList.innerHTML = `<p class="text-center text-red-400 p-4">Error loading users.</p>`;
             });
         }
         
-        /**
-         * Renders the user list based on the current search term.
-         * @param {Array} users The full array of user objects.
-         * @param {string} searchTerm The current search term.
-         */
-        function renderUserList(users, searchTerm) {
-            userList.innerHTML = '';
+        let unsubscribeAllUsers = null;
+        function listenToAllUsers() {
+            if (unsubscribeAllUsers) unsubscribeAllUsers();
+
+            const usersRef = getUsersCollectionRef();
+            unsubscribeAllUsers = onSnapshot(usersRef, (snapshot) => {
+                snapshot.docs.forEach(doc => {
+                    const userData = doc.data();
+                    // Store all user data in a map for quick lookup
+                    allUsersMap.set(userData.userId, userData);
+                });
+                
+                // If we have recent DMs, re-render the list immediately
+                if (Object.keys(currentRecentDMs).length > 0) {
+                    renderUserList();
+                }
+            }, (error) => {
+                console.error("Error listening to all users:", error);
+            });
+        }
+        
+        let unsubscribeCurrentData = null;
+        function listenToCurrentUserData() {
+            if (unsubscribeCurrentData) unsubscribeCurrentData();
+
+            const userDocRef = getUserDocRef(currentUserId);
             
-            const filteredUsers = users.filter(user => 
-                user.username.toLowerCase().includes(searchTerm) || user.userId.toLowerCase().includes(searchTerm)
-            );
+            unsubscribeCurrentData = onSnapshot(userDocRef, (doc) => {
+                if (doc.exists()) {
+                    const userData = doc.data();
+                    // Update currentUsername if it changed via modal
+                    if (currentUsername !== userData.username) {
+                        currentUsername = userData.username;
+                        // Force chat header update if needed
+                        if (selectedUser) {
+                            chatHeader.innerHTML = `<p class="text-lg font-bold text-white">${selectedUser.username}</p><p class="text-xs text-gray-400">ID: ${selectedUser.userId}</p>`;
+                        }
+                    }
+                    
+                    // Update and re-render the recent DM list
+                    currentRecentDMs = userData.recentDMs || {};
+                    renderUserList();
+                }
+            }, (error) => {
+                console.error("Error listening to current user data:", error);
+            });
+        }
+        
+
+        /**
+         * Renders the user list based on recent DMs, filtering by 'removed' status and search term.
+         */
+        function renderUserList() {
+            userList.innerHTML = '';
+            const searchTerm = userSearchInput.value.toLowerCase();
+            
+            // 1. Convert recentDMs map to an array and filter out 'removed' users
+            const recentDmArray = Object.entries(currentRecentDMs)
+                .map(([userId, data]) => ({ userId, ...data }))
+                .filter(dm => !dm.removed);
+            
+            // 2. Sort by last message time (newest first)
+            recentDmArray.sort((a, b) => {
+                const timeA = a.lastMessageTimestamp?.seconds || 0;
+                const timeB = b.lastMessageTimestamp?.seconds || 0;
+                return timeB - timeA;
+            });
+            
+            // 3. Filter by search term
+            const filteredUsers = recentDmArray.filter(dm => {
+                const user = allUsersMap.get(dm.userId);
+                if (!user) return false; // Skip if we don't have the profile yet
+                
+                return user.username.toLowerCase().includes(searchTerm) || dm.userId.toLowerCase().includes(searchTerm);
+            });
+
 
             if (filteredUsers.length === 0) {
-                userList.innerHTML = `<p class="text-center text-gray-500 p-4">No users found.</p>`;
+                userList.innerHTML = `<p class="text-center text-gray-500 p-4">No recent messages or users match your search.</p>`;
                 return;
             }
 
-            filteredUsers.forEach(user => {
+            filteredUsers.forEach(dm => {
+                const user = allUsersMap.get(dm.userId);
+                if (!user) return; // Should not happen if allUsersMap is working
+
                 const userItem = document.createElement('div');
-                userItem.className = `p-3 cursor-pointer border-b border-gray-700 hover:bg-gray-700 transition duration-150 ${selectedUser && selectedUser.userId === user.userId ? 'bg-indigo-700 hover:bg-indigo-800' : ''}`;
+                userItem.className = `p-3 cursor-pointer border-b border-gray-700 hover:bg-gray-700 transition duration-150 flex items-center justify-between ${selectedUser && selectedUser.userId === user.userId ? 'bg-indigo-700 hover:bg-indigo-800' : ''}`;
+                
                 userItem.innerHTML = `
-                    <p class="font-semibold text-white">${user.username}</p>
-                    <p class="text-xs text-gray-400 truncate">ID: ${user.userId}</p>
+                    <div class="flex-grow" data-userid="${user.userId}">
+                        <p class="font-semibold text-white">${user.username}</p>
+                        <p class="text-xs text-gray-400 truncate">ID: ${user.userId}</p>
+                    </div>
+                    <button class="remove-user-btn text-gray-400 hover:text-red-400 transition duration-150 p-1 rounded-full ml-2" data-userid="${user.userId}">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
                 `;
-                userItem.onclick = () => selectUser(user);
+                
+                // Add click listener to the text part (not the button)
+                userItem.querySelector('.flex-grow').onclick = () => selectUser(user);
                 userList.appendChild(userItem);
             });
         }
 
 
         /**
-         * Handles selecting a user to start a conversation.
+         * Marks a user as removed from the current user's recent DMs list.
          */
+        async function removeRecentDm(otherUserId) {
+             if (selectedUser && selectedUser.userId === otherUserId) {
+                // Clear chat view if the removed user was currently selected
+                selectedUser = null;
+                chatHeader.innerHTML = `<p class="text-lg font-semibold text-gray-400 italic">Select a user to start chatting</p>`;
+                messageInputArea.classList.add('hidden');
+                messageContainer.innerHTML = '';
+             }
+             
+             try {
+                // Update the current user's profile to mark the contact as removed
+                const userDocRef = getUserDocRef(currentUserId);
+                const updatePath = `recentDMs.${otherUserId}.removed`;
+                
+                await updateDoc(userDocRef, {
+                    [updatePath]: true
+                });
+                
+                alertUser(`User ${allUsersMap.get(otherUserId)?.username || otherUserId} removed from list.`);
+                // The list re-renders automatically via the listenToCurrentUserData snapshot
+                
+             } catch (error) {
+                 console.error("Error removing DM contact:", error);
+                 alertUser("Failed to remove contact. Try again.");
+             }
+        }
+
+
         function selectUser(user) {
-            if (selectedUser && selectedUser.userId === user.userId) return; // Already selected
+            if (selectedUser && selectedUser.userId === user.userId) return;
             
             selectedUser = user;
             
-            // Update UI elements
             chatHeader.innerHTML = `<p class="text-lg font-bold text-white">${selectedUser.username}</p><p class="text-xs text-gray-400">ID: ${selectedUser.userId}</p>`;
             messageInputArea.classList.remove('hidden');
             messageContainer.innerHTML = '<p class="text-center text-gray-500 italic p-4">Loading messages...</p>';
             
-            // Re-render the user list to highlight the selected user
-            renderUserList(usersArray, userSearchInput.value.toLowerCase());
+            renderUserList(); // Re-render the user list to highlight the selected user
             
-            // Start listening to the messages for this chat
             listenToMessages(selectedUser.userId);
         }
 
         let unsubscribeMessages = null;
 
         /**
-         * Listens to real-time updates for messages between the current and selected user.
+         * Listens to real-time updates for messages.
          */
         function listenToMessages(otherUserId) {
-            if (unsubscribeMessages) unsubscribeMessages(); // Unsubscribe from previous chat
+            if (unsubscribeMessages) unsubscribeMessages();
 
             const chatId = getChatDocId(currentUserId, otherUserId);
             const messagesRef = getMessagesCollectionRef(chatId);
             
-            // NOTE: We only use the collection reference for stability and avoid creating indexes.
             unsubscribeMessages = onSnapshot(messagesRef, (snapshot) => {
-                // 1. Process all messages for rendering
                 const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 
-                // Sort by timestamp client-side for ultra-robustness
                 messages.sort((a, b) => {
-                    const timeA = a.timestamp && a.timestamp.seconds ? a.timestamp.seconds : 0;
-                    const timeB = b.timestamp && b.timestamp.seconds ? b.timestamp.seconds : 0;
+                    const timeA = a.timestamp?.seconds || 0;
+                    const timeB = b.timestamp?.seconds || 0;
                     return timeA - timeB;
                 });
 
                 renderMessages(messages);
                 
-                // 2. Sound Notification Logic
+                // 2. Sound Notification & Re-appearance Logic
                 snapshot.docChanges().forEach(change => {
                     if (change.type === "added") {
                         const newMessage = change.doc.data();
-                        // Play sound only if the message is new and NOT from the current user
-                        if (newMessage.senderId !== currentUserId) {
+                        
+                        // If we receive a message from the other user
+                        if (newMessage.senderId === otherUserId) {
                             playSound();
+                            
+                            // Re-appearance Logic: Ensure the sender is un-removed in the current user's list
+                            updateRecentDmStatus(currentUserId, otherUserId, newMessage.timestamp);
                         }
                     }
                 });
 
             }, (error) => {
-                console.error("FIRESTORE MESSAGE ERROR (Check console for index needs):", error);
-                messageContainer.innerHTML = `<p class="text-center text-red-400 p-4">Error loading messages. Check console for details.</p>`;
+                console.error("FIRESTORE MESSAGE ERROR:", error);
+                messageContainer.innerHTML = `<p class="text-center text-red-400 p-4">Error loading messages.</p>`;
             });
         }
 
         /**
-         * Renders the messages in the chat window.
+         * Updates the sender/receiver's recentDMs list to ensure they are visible.
+         * This function handles both sender and receiver updates.
          */
+        async function updateRecentDmStatus(updaterId, targetId, timestamp) {
+            try {
+                const docRef = getUserDocRef(updaterId);
+                const updatePath = `recentDMs.${targetId}`;
+
+                await updateDoc(docRef, {
+                    [updatePath]: {
+                        lastMessageTimestamp: timestamp,
+                        removed: false // Key for re-appearance logic
+                    }
+                });
+            } catch (error) {
+                console.error(`Failed to update recent DM status for ${updaterId} with ${targetId}`, error);
+            }
+        }
+        
         function renderMessages(messages) {
             messageContainer.innerHTML = '';
 
@@ -530,6 +585,7 @@
 
             messages.forEach(msg => {
                 const isSender = msg.senderId === currentUserId;
+                const otherUser = selectedUser || allUsersMap.get(msg.receiverId); // Fallback lookup if possible
                 
                 const messageDiv = document.createElement('div');
                 messageDiv.className = `flex ${isSender ? 'justify-end' : 'justify-start'}`;
@@ -541,8 +597,7 @@
                     : 'bg-gray-700 text-gray-100 rounded-tl-none'
                 }`;
                 
-                // Use currentUsername for the sender's display name to ensure changes are reflected
-                const displayName = isSender ? currentUsername : selectedUser.username;
+                const displayName = isSender ? currentUsername : otherUser?.username || 'Unknown User';
 
                 bubble.innerHTML = `
                     <p class="text-sm font-semibold mb-1">${displayName}</p>
@@ -554,13 +609,9 @@
                 messageContainer.appendChild(messageDiv);
             });
 
-            // Scroll to bottom after rendering new messages
             messageContainer.scrollTop = messageContainer.scrollHeight;
         }
 
-        /**
-         * Sends a new message to the selected user.
-         */
         async function sendMessage() {
             if (!selectedUser) return;
             
@@ -571,16 +622,30 @@
             const messagesRef = getMessagesCollectionRef(chatId);
 
             try {
-                // Add the new message document
-                await addDoc(messagesRef, {
+                const messagePayload = {
                     senderId: currentUserId,
-                    senderUsername: currentUsername, // Save the current name, although not strictly needed for rendering
+                    senderUsername: currentUsername, 
                     receiverId: selectedUser.userId,
                     text: text,
                     timestamp: serverTimestamp()
-                });
+                };
 
-                messageInput.value = ''; // Clear input field
+                await addDoc(messagesRef, messagePayload);
+                messageInput.value = '';
+
+                // IMPORTANT: Update the recent DMs list for both users (sender and receiver)
+                
+                // 1. Update sender's (current user's) list
+                await updateRecentDmStatus(currentUserId, selectedUser.userId, messagePayload.timestamp);
+                
+                // 2. Update receiver's list (using a dedicated function on the server side would be better, but we mimic it here)
+                // Note: The timestamp here will be the local client time, but Firebase will correct it to server timestamp on write.
+                const receiverUpdatePromise = updateDoc(getUserDocRef(selectedUser.userId), {
+                    [`recentDMs.${currentUserId}`]: {
+                        lastMessageTimestamp: serverTimestamp(),
+                        removed: false // Ensure the sender appears in the receiver's list
+                    }
+                }).catch(e => console.warn("Could not update receiver's DM status. Receiver may not have accepted security rules.", e));
 
             } catch (error) {
                 console.error("Error sending message:", error);
@@ -588,36 +653,23 @@
             }
         }
         
-        /**
-         * Plays the notification sound.
-         */
         function playSound() {
             if (notificationSound) {
-                // Rewind the sound to the start before playing
                 notificationSound.currentTime = 0; 
                 notificationSound.play().catch(error => {
-                    // Catch play error (often caused by browser's auto-play restrictions)
                     console.warn("Could not play notification sound. User interaction required first.", error);
-                    // No need to alert the user, but we log the issue.
                 });
             }
         }
 
         // --- UTILITY FUNCTIONS ---
 
-        /**
-         * Simple timestamp formatter.
-         */
         function formatTimestamp(timestamp) {
             if (!timestamp) return 'Sending...';
-            // Use client-side date if server timestamp is not yet populated
             const date = timestamp.toDate ? timestamp.toDate() : new Date();
             return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
         }
         
-        /**
-         * Custom alert message box instead of alert().
-         */
         function alertUser(message) {
             const existingAlert = document.getElementById('custom-alert');
             if (existingAlert) existingAlert.remove();
@@ -628,7 +680,6 @@
             alertDiv.textContent = message;
             document.body.appendChild(alertDiv);
 
-            // Auto-dismiss after 4 seconds
             setTimeout(() => {
                 alertDiv.style.opacity = '0';
                 setTimeout(() => alertDiv.remove(), 300);
