@@ -526,7 +526,7 @@
             const chatBox = document.getElementById('chat-box');
             if(chatBox) {
                 chatBox.innerHTML = `
-                    <div id="loading-state" class="p-4 text-center text-indigo-400 animate-pulse">
+                    <div id="loading-state-chat" class="p-4 text-center text-indigo-400 animate-pulse">
                         Loading ${newChatName} messages...
                     </div>
                 `;
@@ -575,13 +575,18 @@
                     messages.push({ id: doc.id, ...doc.data() });
                 });
 
+                // Clear the loading state if present
+                const loadingState = document.getElementById('loading-state-chat');
+                if(loadingState) loadingState.remove();
+
                 renderMessages(messages);
             }, (error) => {
                 console.error("Error listening to Firestore:", error);
+                const chatBox = document.getElementById('chat-box');
+                if(chatBox) {
+                    chatBox.innerHTML = `<div class="p-4 text-center text-red-500">Error loading messages: ${error.message}</div>`;
+                }
             });
-
-            const loadingState = document.getElementById('loading-state');
-            if(loadingState) loadingState.innerHTML = '';
         }
         
         const showNotification = (message, color) => {
