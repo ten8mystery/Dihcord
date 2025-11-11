@@ -11,26 +11,87 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            /* Dark Mode Background */
-            background-color: #1f2937;
+            background-color: #1f2937; /* Default body background */
             color: #f3f4f6;
         }
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 8px;
+
+        /* --- THEME DEFINITIONS (Uses CSS Variables for Dynamic Styling) --- */
+        
+        /* 1. DARK DEFAULT (Applied by default, but explicitly defined here) */
+        .theme-dark-default {
+            --color-bg-primary: #1f2937; /* Sidebar/Modal */
+            --color-bg-secondary: #374151; /* Chat background */
+            --color-accent: #4f46e5; /* Indigo */
+            --color-text-main: #f3f4f6;
+            --color-text-secondary: #9ca3af;
+            --color-border: #4b5563;
         }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background-color: #4b5563;
-            border-radius: 4px;
+
+        /* 2. NEBULA THEME */
+        .theme-nebula {
+            --color-bg-primary: #17103a; /* Deep Purple */
+            --color-bg-secondary: #271a5c; /* Lighter Purple */
+            --color-accent: #e91e63; /* Pink */
+            --color-text-main: #fce4ec;
+            --color-text-secondary: #b39ddb;
+            --color-border: #4527a0;
         }
-        .custom-scrollbar::-webkit-scrollbar-track {
+        
+        /* 3. FOREST THEME */
+        .theme-forest {
+            --color-bg-primary: #f3f4f6; /* Light Gray */
+            --color-bg-secondary: #d1fae5; /* Mint Green */
+            --color-accent: #059669; /* Emerald */
+            --color-text-main: #1f2937;
+            --color-text-secondary: #374151;
+            --color-border: #9ca3af;
+        }
+
+        /* APPLYING THEMES TO TAILWIND CLASSES */
+        #app.theme-dark-default {
             background-color: #1f2937;
         }
+        #app.theme-nebula {
+            background-color: var(--color-bg-primary);
+        }
+        #app.theme-forest {
+            background-color: var(--color-bg-primary);
+        }
+
+        /* Generic styles using CSS variables */
+        #app .bg-sidebar { background-color: var(--color-bg-primary); }
+        #app .bg-chat { background-color: var(--color-bg-secondary); }
+        #app .text-main { color: var(--color-text-main); }
+        #app .text-secondary { color: var(--color-text-secondary); }
+        #app .border-main { border-color: var(--color-border); }
+        #app .bg-accent { background-color: var(--color-accent); }
+        #app .hover-bg-accent:hover { background-color: var(--color-accent); opacity: 0.9; }
+        
+        /* Input/Button Styling */
+        #app input { 
+            background-color: var(--color-bg-secondary); 
+            color: var(--color-text-main);
+            border-color: var(--color-border);
+        }
+        #app .user-item-active { background-color: color-mix(in srgb, var(--color-accent) 60%, var(--color-bg-primary)); }
+
+
+        /* Custom Scrollbar for Theming */
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { 
+            background-color: var(--color-border);
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track { 
+            background-color: var(--color-bg-primary);
+        }
+
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
 
-    <!-- Main App Container -->
-    <div id="app" class="w-full max-w-5xl h-[85vh] bg-gray-800 shadow-2xl rounded-xl flex overflow-hidden">
+    <!-- Main App Container - Theme class will be applied here -->
+    <div id="app" class="w-full max-w-5xl h-[85vh] shadow-2xl rounded-xl flex overflow-hidden theme-dark-default">
         
         <!-- Loading Screen (Initial state) -->
         <div id="loading-screen" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-gray-900/90 text-white transition-opacity duration-300">
@@ -41,7 +102,7 @@
             <p id="status-message">Connecting to database and loading users...</p>
         </div>
 
-        <!-- Profile Setup/Change Modal -->
+        <!-- Profile Setup/Change Modal (Reused) -->
         <div id="profile-modal" class="hidden absolute inset-0 z-50 flex items-center justify-center bg-gray-900/90 p-4">
             <div class="bg-gray-700 p-8 rounded-xl shadow-2xl w-full max-w-sm">
                 <h2 class="text-xl font-bold mb-4 text-white" id="profile-modal-title">Set Up Your Profile</h2>
@@ -54,21 +115,70 @@
             </div>
         </div>
 
+        <!-- NEW: Settings Modal -->
+        <div id="settings-modal" class="hidden absolute inset-0 z-50 flex items-center justify-center bg-gray-900/90 p-4">
+            <div class="bg-sidebar p-8 rounded-xl shadow-2xl w-full max-w-lg border border-main">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-3xl font-bold text-main">Settings</h2>
+                    <button id="close-settings-btn" class="text-secondary hover:text-red-400 transition duration-150">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Section: User Profile -->
+                <div class="mb-6 pb-4 border-b border-main">
+                    <h3 class="text-xl font-semibold text-accent mb-3">User Profile</h3>
+                    <p class="text-sm text-secondary mb-3">
+                        Current User: <span class="text-main font-mono text-xs" id="settings-current-user-id"></span>
+                    </p>
+                    <button id="settings-change-name-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 rounded-lg text-sm transition duration-150 flex items-center justify-center space-x-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                        <span>Change Username (<span id="settings-current-username"></span>)</span>
+                    </button>
+                </div>
+
+                <!-- Section: Themes -->
+                <div class="mb-6 pb-4 border-b border-main">
+                    <h3 class="text-xl font-semibold text-accent mb-3">Theme Selection</h3>
+                    <p class="text-sm text-secondary mb-3">Choose an aesthetic for your application.</p>
+                    <div id="theme-options" class="grid grid-cols-3 gap-3">
+                        <!-- Theme buttons will be rendered here -->
+                    </div>
+                </div>
+
+                <!-- Section: Notifications -->
+                <div class="mb-4">
+                    <h3 class="text-xl font-semibold text-accent mb-3">Device Notifications</h3>
+                    <p class="text-sm text-secondary mb-3">Allows device-level popups when you receive a new message.</p>
+                    <button id="settings-notification-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 rounded-lg text-sm transition duration-150 flex items-center justify-center space-x-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-2.812A2.003 2.003 0 0118 13.001V10c0-2.206-1.554-4.084-3.864-4.636l-.358-.09A2.004 2.004 0 0010 6.636V13a2.003 2.003 0 01-.595 1.189L8 17h7zm-4 4a2 2 0 100-4 2 2 0 000 4z" />
+                        </svg>
+                        <span id="settings-notification-btn-text">Enable Notifications</span>
+                    </button>
+                    <p id="settings-notification-status" class="text-xs text-center mt-1 text-secondary"></p>
+                </div>
+
+            </div>
+        </div>
+
         <!-- Left Sidebar (User List) -->
-        <div class="w-1/3 border-r border-gray-700 flex flex-col bg-gray-900">
-            <div class="p-4 border-b border-gray-700">
-                <h1 class="text-2xl font-bold text-white">Contacts & DMs</h1>
-                <p id="current-user-info" class="text-xs text-gray-400 mt-1"></p>
+        <div class="w-1/3 border-r border-main flex flex-col bg-sidebar">
+            <div class="p-4 border-b border-main">
+                <h1 class="text-2xl font-bold text-main">Contacts & DMs</h1>
+                <p id="current-user-info" class="text-xs text-secondary mt-1"></p>
             </div>
             
             <!-- User Search Input / Add DM -->
-            <div class="p-3 border-b border-gray-700">
-                <input type="text" id="user-search-input" placeholder="Search/Add user by username..." class="w-full p-2 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition duration-150 text-sm">
+            <div class="p-3 border-b border-main">
+                <input type="text" id="user-search-input" placeholder="Search/Add user by username..." class="w-full p-2 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accent transition duration-150 border">
             </div>
 
             <!-- Search Results for NEW users -->
-            <div id="search-results" class="px-3 pt-2 pb-1 border-b border-gray-700 hidden">
-                <p class="text-xs font-semibold uppercase text-indigo-400 mb-1">Found User</p>
+            <div id="search-results" class="px-3 pt-2 pb-1 border-b border-main hidden">
+                <p class="text-xs font-semibold uppercase text-accent mb-1">Found User</p>
                 <!-- Search result item will be dynamically inserted here -->
             </div>
 
@@ -78,33 +188,22 @@
                 <p class="text-center text-gray-500 p-4">Start by sending or receiving a message!</p>
             </div>
             
-            <!-- Profile Settings Button -->
-            <div class="p-3 border-t border-gray-700">
-                <button id="change-name-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 rounded-lg text-sm transition duration-150 flex items-center justify-center space-x-2">
+            <!-- Settings Button (Replaced old buttons) -->
+            <div class="p-3 border-t border-main">
+                <button id="open-settings-btn" class="w-full bg-accent hover-bg-accent text-white font-semibold py-2 rounded-lg text-sm transition duration-150 flex items-center justify-center space-x-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.82 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.82 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.82-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.82-3.31 2.37-2.37a1.724 1.724 0 002.572-1.065z" />
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
-                    <span>Change Name</span>
+                    <span>Open Settings</span>
                 </button>
-            </div>
-
-            <!-- Notification Settings Button -->
-            <div class="p-3 border-t border-gray-700">
-                <button id="notification-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 rounded-lg text-sm transition duration-150 flex items-center justify-center space-x-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-2.812A2.003 2.003 0 0118 13.001V10c0-2.206-1.554-4.084-3.864-4.636l-.358-.09A2.004 2.004 0 0010 6.636V13a2.003 2.003 0 01-.595 1.189L8 17h7zm-4 4a2 2 0 100-4 2 2 0 000 4z" />
-                    </svg>
-                    <span id="notification-btn-text">Enable Notifications</span>
-                </button>
-                <p id="notification-status" class="text-xs text-center mt-1 text-gray-400"></p>
             </div>
         </div>
 
         <!-- Right Content (Chat Window) -->
-        <div class="w-2/3 flex flex-col bg-gray-800">
-            <div id="chat-header" class="p-4 border-b border-gray-700 flex items-center justify-between bg-gray-900/50">
-                <p class="text-lg font-semibold text-gray-400 italic">Select a user to start chatting</p>
+        <div class="w-2/3 flex flex-col bg-chat text-main">
+            <div id="chat-header" class="p-4 border-b border-main flex items-center justify-between bg-sidebar/50">
+                <p class="text-lg font-semibold text-secondary italic">Select a user to start chatting</p>
             </div>
             
             <!-- Message Display Area -->
@@ -113,13 +212,13 @@
             </div>
 
             <!-- Message Input Area (Updated for Image) -->
-            <div id="message-input-area" class="p-4 border-t border-gray-700 hidden">
+            <div id="message-input-area" class="p-4 border-t border-main hidden">
                 <!-- Image Preview and Cancel Area -->
-                <div id="image-preview-area" class="mb-3 p-3 bg-gray-700 rounded-lg hidden">
-                    <p class="text-sm font-semibold mb-2 text-gray-300">Image Ready to Send:</p>
+                <div id="image-preview-area" class="mb-3 p-3 bg-sidebar rounded-lg hidden">
+                    <p class="text-sm font-semibold mb-2 text-secondary">Image Ready to Send:</p>
                     <div class="flex items-center space-x-4">
-                        <img id="image-preview" src="" class="max-h-24 w-auto rounded-md object-contain border border-gray-600">
-                        <span id="image-size-warning" class="text-yellow-400 text-xs hidden">Warning: Large file size! Consider sending smaller images to avoid exceeding Firestore limits (~900KB Base64 max).</span>
+                        <img id="image-preview" src="" class="max-h-24 w-auto rounded-md object-contain border border-main">
+                        <span id="image-size-warning" class="text-yellow-400 text-xs hidden">Warning: Large file size!</span>
                         <button id="cancel-image-btn" class="text-red-400 hover:text-red-300 text-sm">
                              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -132,15 +231,15 @@
                 <!-- Text and Send/Upload Area -->
                 <div class="flex items-center space-x-3">
                     <!-- Image Upload Button and Hidden Input -->
-                    <label for="image-upload-input" class="cursor-pointer bg-gray-700 hover:bg-gray-600 text-gray-300 p-3 rounded-full shadow-lg transition duration-150">
+                    <label for="image-upload-input" class="cursor-pointer bg-sidebar hover:bg-chat text-secondary p-3 rounded-full shadow-lg transition duration-150 border border-main">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                     </label>
                     <input type="file" id="image-upload-input" accept="image/*" class="hidden">
                     
-                    <input type="text" id="message-input" placeholder="Type a message or select an image..." class="flex-grow p-3 rounded-full bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150">
-                    <button id="send-button" class="bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-full shadow-lg transition duration-150">
+                    <input type="text" id="message-input" placeholder="Type a message or select an image..." class="flex-grow p-3 rounded-full border focus:ring-accent">
+                    <button id="send-button" class="bg-accent hover-bg-accent text-white p-3 rounded-full shadow-lg transition duration-150">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7" />
                         </svg>
@@ -157,7 +256,6 @@
         import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, where, addDoc, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Set Firebase logging level for debugging
         setLogLevel('Debug');
 
         // --- GLOBAL VARIABLES (Provided by Environment or Fallback) ---
@@ -192,16 +290,23 @@
         let app, db, auth;
         let currentUserId = null;
         let currentUsername = "Guest";
+        let currentTheme = "dark-default"; // NEW: Theme State
         let selectedUser = null; 
         
-        let allUsersMap = new Map(); // All user profiles (key: userId, value: {username, ...})
-        let currentRecentDMs = {}; // Current user's recent DM list 
-        
-        // --- IMAGE STATE VARIABLE ---
+        let allUsersMap = new Map(); 
+        let currentRecentDMs = {}; 
         let selectedImageBase64 = null;
         
+        // --- THEME OPTIONS (NEW) ---
+        const THEMES = [
+            { name: "Dark Default", value: "dark-default", colors: { bg: '#1f2937', accent: '#4f46e5' } },
+            { name: "Nebula", value: "theme-nebula", colors: { bg: '#17103a', accent: '#e91e63' } },
+            { name: "Forest", value: "theme-forest", colors: { bg: '#f3f4f6', accent: '#059669' } },
+        ];
+
 
         // DOM Elements
+        const appContainer = document.getElementById('app');
         const loadingScreen = document.getElementById('loading-screen');
         const statusMessage = document.getElementById('status-message');
         const profileModal = document.getElementById('profile-modal');
@@ -218,13 +323,21 @@
         const sendButton = document.getElementById('send-button');
         const currentUserInfo = document.getElementById('current-user-info');
         const userSearchInput = document.getElementById('user-search-input');
-        const changeNameBtn = document.getElementById('change-name-btn');
         const searchResultsDiv = document.getElementById('search-results');
         
-        // --- NOTIFICATION DOM Elements ---
-        const notificationBtn = document.getElementById('notification-btn');
-        const notificationBtnText = document.getElementById('notification-btn-text');
-        const notificationStatus = document.getElementById('notification-status');
+        // --- SETTINGS MODAL DOM Elements (NEW) ---
+        const settingsModal = document.getElementById('settings-modal');
+        const openSettingsBtn = document.getElementById('open-settings-btn');
+        const closeSettingsBtn = document.getElementById('close-settings-btn');
+        const settingsChangeNameBtn = document.getElementById('settings-change-name-btn');
+        const settingsCurrentUsername = document.getElementById('settings-current-username');
+        const settingsCurrentUserId = document.getElementById('settings-current-user-id');
+        const themeOptionsDiv = document.getElementById('theme-options');
+
+        // --- NOTIFICATION DOM Elements (Moved to settings prefix) ---
+        const settingsNotificationBtn = document.getElementById('settings-notification-btn');
+        const settingsNotificationBtnText = document.getElementById('settings-notification-btn-text');
+        const settingsNotificationStatus = document.getElementById('settings-notification-status');
 
         
         // --- IMAGE DOM Elements ---
@@ -284,7 +397,6 @@
                         currentUserId = user.uid;
                         statusMessage.textContent = "Authenticated. Checking profile...";
                         await checkAndSetupUserProfile();
-                        changeNameBtn.addEventListener('click', () => showProfileModal(true));
                     } else {
                         console.error("Auth state is null after sign-in attempt.");
                         statusMessage.textContent = "CRITICAL ERROR: Failed to authenticate user.";
@@ -305,20 +417,94 @@
                 const userData = userDoc.data();
                 currentUsername = userData.username;
                 currentRecentDMs = userData.recentDMs || {};
+                currentTheme = userData.theme || 'dark-default'; // Load Theme
+                
                 currentUserInfo.textContent = `User ID: ${currentUserId}`;
                 
+                initTheme(currentTheme); // Apply theme immediately
                 hideLoadingScreen();
                 startAppListeners();
-                // Initial check for notification status
                 updateNotificationUI();
             } else {
+                // Initial setup, theme defaults to 'dark-default'
+                initTheme(currentTheme);
                 loadingScreen.classList.add('hidden');
                 showProfileModal(false);
             }
         }
 
+        // --- THEME HANDLERS (NEW) ---
+
+        function initTheme(themeName) {
+            appContainer.className = appContainer.className.split(' ').filter(c => !c.startsWith('theme-')).join(' ');
+            appContainer.classList.add(themeName);
+            currentTheme = themeName;
+        }
+
+        async function saveTheme(themeName) {
+            if (currentTheme === themeName) return;
+            
+            try {
+                await updateDoc(getUserDocRef(currentUserId), {
+                    theme: themeName
+                });
+                initTheme(themeName); // Update UI
+                alertUser(`Theme changed to ${THEMES.find(t => t.value === themeName).name}`);
+                renderThemeOptions(); // Update selected button in settings
+            } catch (error) {
+                console.error("Error saving theme:", error);
+                alertUser("Failed to save theme setting.");
+            }
+        }
+        
+        function renderThemeOptions() {
+            themeOptionsDiv.innerHTML = '';
+            THEMES.forEach(theme => {
+                const isSelected = currentTheme === theme.value;
+                const button = document.createElement('button');
+                
+                // Set button styles based on theme colors for preview
+                button.style.backgroundColor = theme.colors.bg;
+                button.style.color = isSelected ? '#ffffff' : theme.colors.accent; 
+                button.style.borderColor = theme.colors.accent;
+                button.style.borderWidth = '2px';
+                
+                button.className = `p-3 rounded-lg text-sm font-semibold transition duration-150 ${isSelected ? 'shadow-xl' : 'hover:opacity-90'}`;
+                button.textContent = theme.name;
+                button.dataset.theme = theme.value;
+                
+                button.addEventListener('click', () => saveTheme(theme.value));
+                themeOptionsDiv.appendChild(button);
+            });
+        }
+        
+
+        // --- SETTINGS MODAL LOGIC (NEW) ---
+        
+        function openSettingsModal() {
+            // Update the profile section in the modal
+            settingsCurrentUsername.textContent = currentUsername;
+            settingsCurrentUserId.textContent = currentUserId;
+            
+            // Render theme options
+            renderThemeOptions();
+            
+            // Update notification UI within settings
+            updateNotificationUI('settings-');
+            
+            settingsModal.classList.remove('hidden');
+        }
+
+        function closeSettingsModal() {
+            settingsModal.classList.add('hidden');
+        }
+
+
+        // --- PROFILE MODAL LOGIC (Existing, adapted for new trigger) ---
+
         function showProfileModal(isChange) {
-            usernameError.classList.add('hidden'); // Clear any previous error
+            settingsModal.classList.add('hidden'); // Hide settings if showing profile modal
+            usernameError.classList.add('hidden');
             if (isChange) {
                 profileModalTitle.textContent = "Change Your Username";
                 profileModalText.innerHTML = "Enter a new **unique** username. It will update immediately for everyone.";
@@ -333,24 +519,19 @@
             usernameInput.focus();
         }
         
-        /**
-         * Checks if a username is already taken by querying the Firestore 'users' collection.
-         */
         async function isUsernameTaken(username, excludeUserId) {
-            if (!db) return true; // Fail safe if DB not initialized
+            if (!db) return true; 
             const usersRef = getUsersCollectionRef();
             const usernameQuery = query(usersRef, where('username', '==', username));
             
             try {
                 const snapshot = await getDocs(usernameQuery);
-                
-                // If the snapshot has results, check if any belong to a different user
                 return snapshot.docs.some(doc => {
                     return doc.id !== excludeUserId;
                 });
             } catch (error) {
                 console.error("Error checking username uniqueness:", error);
-                return true; // Assume taken if check fails
+                return true; 
             }
         }
 
@@ -364,14 +545,12 @@
                 return;
             }
             
-            // FIX: If the user submits their current username, bypass the check.
             if (username === currentUsername && profileModalTitle.textContent.includes('Change Your Username')) {
                 profileModal.classList.add('hidden');
+                openSettingsModal(); // Return to settings
                 return;
             }
 
-
-            // Check for uniqueness
             const isTaken = await isUsernameTaken(username, currentUserId);
             if (isTaken) {
                 usernameError.textContent = `The username "${username}" is already taken.`;
@@ -387,6 +566,7 @@
                     username: username,
                     createdAt: serverTimestamp(),
                     lastSeen: serverTimestamp(),
+                    theme: currentTheme // Ensure theme is saved on initial setup too
                 };
 
                 await setDoc(getUserDocRef(currentUserId), userDataToSave, { merge: true });
@@ -397,11 +577,11 @@
                 
                 if (isInitialSetup) {
                     startAppListeners();
-                    updateNotificationUI(); // Check status on initial setup
+                    updateNotificationUI(); 
                 } else {
-                    // Refresh the user list and search results after name change
                     handleSearch(userSearchInput.value.trim()); 
                     renderUserList();
+                    openSettingsModal(); // Return to settings after name change
                 }
 
             } catch (error) {
@@ -439,8 +619,11 @@
             imageUploadInput.addEventListener('change', handleImageUpload);
             cancelImageBtn.addEventListener('click', cancelImage);
             
-            // --- NOTIFICATION LISTENER ---
-            notificationBtn.addEventListener('click', requestNotificationPermission);
+            // --- SETTINGS LISTENERS (NEW) ---
+            openSettingsBtn.addEventListener('click', openSettingsModal);
+            closeSettingsBtn.addEventListener('click', closeSettingsModal);
+            settingsChangeNameBtn.addEventListener('click', () => showProfileModal(true));
+            settingsNotificationBtn.addEventListener('click', () => requestNotificationPermission('settings-'));
             
             userList.addEventListener('click', (e) => {
                 const target = e.target.closest('.remove-user-btn');
@@ -453,7 +636,6 @@
                 }
             });
             
-            // Delegate click listener for the dynamic "Start DM" button
             searchResultsDiv.addEventListener('click', (e) => {
                  const target = e.target.closest('.start-dm-btn');
                  if (target) {
@@ -466,48 +648,56 @@
             });
         }
         
-        // --- NOTIFICATION HANDLERS (New) ---
+        // --- NOTIFICATION HANDLERS ---
 
-        function updateNotificationUI() {
+        function updateNotificationUI(prefix = '') {
             if (!("Notification" in window)) {
-                notificationStatus.textContent = "Notifications not supported by this browser.";
-                notificationBtn.disabled = true;
+                document.getElementById(`${prefix}notification-status`).textContent = "Notifications not supported by this browser.";
+                document.getElementById(`${prefix}notification-btn`).disabled = true;
                 return;
             }
+            
+            const btn = document.getElementById(`${prefix}notification-btn`);
+            const btnText = document.getElementById(`${prefix}notification-btn-text`);
+            const status = document.getElementById(`${prefix}notification-status`);
+            
+            // Reset button classes
+            btn.className = btn.className.replace(/bg-(green|red|gray)-\d{3}/g, 'bg-gray-700').replace(/hover:bg-(green|red|gray)-\d{3}/g, 'hover:bg-gray-600');
+
 
             switch (Notification.permission) {
                 case "granted":
-                    notificationBtnText.textContent = "Notifications ON";
-                    notificationStatus.textContent = "Messages will pop up outside the app.";
-                    notificationBtn.className = notificationBtn.className.replace('bg-gray-700', 'bg-green-600').replace('hover:bg-gray-600', 'hover:bg-green-700');
-                    notificationBtn.disabled = true;
+                    btnText.textContent = "Notifications ON";
+                    status.textContent = "Messages will pop up outside the app.";
+                    btn.classList.replace('bg-gray-700', 'bg-green-600');
+                    btn.classList.replace('hover:bg-gray-600', 'hover:bg-green-700');
+                    btn.disabled = true;
                     break;
                 case "denied":
-                    notificationBtnText.textContent = "Notifications BLOCKED";
-                    notificationStatus.textContent = "Please check browser settings to re-enable.";
-                    notificationBtn.className = notificationBtn.className.replace('bg-green-600', 'bg-red-600').replace('hover:bg-gray-600', 'hover:bg-red-700');
-                    notificationBtn.disabled = true;
+                    btnText.textContent = "Notifications BLOCKED";
+                    status.textContent = "Please check browser settings to re-enable.";
+                    btn.classList.replace('bg-gray-700', 'bg-red-600');
+                    btn.classList.replace('hover:bg-gray-600', 'hover:bg-red-700');
+                    btn.disabled = true;
                     break;
                 case "default":
                 default:
-                    notificationBtnText.textContent = "Enable Notifications";
-                    notificationStatus.textContent = "Click to receive desktop alerts.";
-                    notificationBtn.className = notificationBtn.className.replace('bg-green-600', 'bg-gray-700').replace('bg-red-600', 'bg-gray-700');
-                    notificationBtn.disabled = false;
+                    btnText.textContent = "Enable Notifications";
+                    status.textContent = "Click to receive desktop alerts.";
+                    btn.disabled = false;
                     break;
             }
         }
 
-        async function requestNotificationPermission() {
+        async function requestNotificationPermission(prefix = '') {
             if (!("Notification" in window)) {
                 alertUser("Your browser doesn't support notifications.");
                 return;
             }
             
-            // Use Notification.requestPermission to prompt the user
             const permission = await Notification.requestPermission();
             
-            updateNotificationUI();
+            updateNotificationUI(prefix);
             
             if (permission === "granted") {
                 alertUser("Notifications enabled! You'll receive desktop alerts for new messages.");
@@ -517,6 +707,7 @@
         }
         
         function sendBrowserNotification(senderUsername, messageText) {
+            // Only send notification if the document is hidden/minimized AND permission is granted
             if (Notification.permission === "granted" && document.hidden) {
                 let bodyText = messageText.text;
                 if (messageText.type === 'image') {
@@ -525,14 +716,12 @@
                     bodyText = "[Empty message]";
                 }
 
-                // If the app is not currently visible, show a notification
                 const notification = new Notification(`New message from ${senderUsername}`, {
                     body: bodyText.length > 50 ? bodyText.substring(0, 47) + '...' : bodyText,
                     icon: 'https://placehold.co/48x48/6366f1/ffffff?text=DM', 
-                    tag: 'dm-message-received' // Prevents excessive stacking
+                    tag: 'dm-message-received' 
                 });
                 
-                // Optional: focus the tab when the notification is clicked
                 notification.onclick = function () {
                     window.focus();
                 };
@@ -543,7 +732,7 @@
         
         function cancelImage() {
             selectedImageBase64 = null;
-            imageUploadInput.value = null; // Clear file input
+            imageUploadInput.value = null; 
             imagePreviewArea.classList.add('hidden');
             messageInput.disabled = false;
             messageInput.placeholder = "Type a message or select an image...";
@@ -553,7 +742,6 @@
             const file = event.target.files[0];
             if (!file) return;
 
-            // Check if file is over 500KB (warning threshold)
             if (file.size > 500 * 1024) { 
                 imageSizeWarning.classList.remove('hidden');
             } else {
@@ -566,7 +754,6 @@
                 imagePreview.src = selectedImageBase64;
                 imagePreviewArea.classList.remove('hidden');
                 
-                // Disable text input while an image is selected
                 messageInput.value = '';
                 messageInput.disabled = true;
                 messageInput.placeholder = "Image selected. Press send.";
@@ -580,21 +767,17 @@
             if (unsubscribeAllUsers) unsubscribeAllUsers();
 
             const usersRef = getUsersCollectionRef();
-            // Listen to all users to populate the map for search functionality
             unsubscribeAllUsers = onSnapshot(usersRef, (snapshot) => {
                 snapshot.docs.forEach(doc => {
                     const userData = doc.data();
-                    // Store all user data except the current user
                     if (userData.userId !== currentUserId) {
                        allUsersMap.set(userData.userId, userData);
                     }
-                    // Handle current user data update in current listener too
                     if (userData.userId === currentUserId) {
                         currentUsername = userData.username;
                     }
                 });
                 
-                // If there is a search term, re-run search after map update
                 handleSearch(userSearchInput.value.trim());
                 renderUserList();
 
@@ -615,14 +798,18 @@
                     
                     if (currentUsername !== userData.username) {
                         currentUsername = userData.username;
-                        // Update chat header display if a user is selected
                         if (selectedUser) {
-                            chatHeader.innerHTML = `<p class="text-lg font-bold text-white">${selectedUser.username}</p><p class="text-xs text-gray-400">ID: ${selectedUser.userId}</p>`;
+                            chatHeader.innerHTML = `<p class="text-lg font-bold text-main">${selectedUser.username}</p><p class="text-xs text-secondary">ID: ${selectedUser.userId}</p>`;
                         }
                     }
                     
+                    // NEW: Update theme if changed externally
+                    const newTheme = userData.theme || 'dark-default';
+                    if (currentTheme !== newTheme) {
+                        initTheme(newTheme);
+                    }
+                    
                     currentRecentDMs = userData.recentDMs || {};
-                    // Re-render both the list and the search results (in case a user was added/removed)
                     handleSearch(userSearchInput.value.trim());
                     renderUserList();
                 }
@@ -638,38 +825,33 @@
             
             if (searchTerm.length < 2) {
                 searchResultsDiv.classList.add('hidden');
-                renderUserList(true); // Re-render all recent DMs
+                renderUserList(true); 
                 return;
             }
 
-            // 1. Filter recent DMs (existing list functionality)
             renderUserList(false, searchTerm); 
 
-            // 2. Search all users for ADD DM functionality
             let foundNewUser = null;
             
             for (const [userId, user] of allUsersMap.entries()) {
-                // Ignore users already in the recent list (even if removed, we prioritize the filter search)
                 if (currentRecentDMs[userId] && !currentRecentDMs[userId].removed) continue;
                 
-                // Case-insensitive exact match search (for simplicity, adjust as needed)
                 if (user.username.toLowerCase() === searchTerm.toLowerCase()) {
                     foundNewUser = user;
                     break;
                 }
             }
 
-            // 3. Render new user result
             if (foundNewUser) {
                 const isRemoved = currentRecentDMs[foundNewUser.userId] && currentRecentDMs[foundNewUser.userId].removed;
                 
                 searchResultsDiv.innerHTML = `
-                    <div class="flex items-center justify-between p-2 rounded-lg bg-gray-800 border border-indigo-600">
+                    <div class="flex items-center justify-between p-2 rounded-lg bg-sidebar border border-accent">
                         <div>
-                            <p class="font-semibold text-white">${foundNewUser.username}</p>
-                            <p class="text-xs text-gray-400 truncate">ID: ${foundNewUser.userId}</p>
+                            <p class="font-semibold text-main">${foundNewUser.username}</p>
+                            <p class="text-xs text-secondary truncate">ID: ${foundNewUser.userId}</p>
                         </div>
-                        <button class="start-dm-btn bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-1 px-3 rounded-lg text-sm transition duration-150 ml-2" data-userid="${foundNewUser.userId}">
+                        <button class="start-dm-btn bg-accent hover-bg-accent text-white font-semibold py-1 px-3 rounded-lg text-sm transition duration-150 ml-2" data-userid="${foundNewUser.userId}">
                             ${isRemoved ? 'Restore DM' : 'Start DM'}
                         </button>
                     </div>
@@ -680,27 +862,20 @@
             }
         }
         
-        /**
-         * Adds a user to the recent DMs list and selects them.
-         */
         function addUserToDMs(user) {
-            // Immediately mark them as visible in the DMs list and select them
             updateRecentDmStatus(currentUserId, user.userId, serverTimestamp());
             selectUser(user);
-            userSearchInput.value = ''; // Clear search
+            userSearchInput.value = ''; 
             searchResultsDiv.classList.add('hidden');
         }
 
 
-        /**
-         * Renders the recent DM user list, applying a filter if provided.
-         */
         function renderUserList(showAll = true, filterTerm = "") {
             userList.innerHTML = '';
             
             const recentDmArray = Object.entries(currentRecentDMs)
                 .map(([userId, data]) => ({ userId, ...data }))
-                .filter(dm => !dm.removed); // Only show non-removed contacts
+                .filter(dm => !dm.removed); 
             
             recentDmArray.sort((a, b) => {
                 const timeA = a.lastMessageTimestamp?.seconds || 0;
@@ -720,7 +895,7 @@
 
 
             if (filteredUsers.length === 0) {
-                userList.innerHTML = `<p class="text-center text-gray-500 p-4">No recent messages match your search.</p>`;
+                userList.innerHTML = `<p class="text-center text-secondary p-4">No recent messages match your search.</p>`;
                 return;
             }
 
@@ -729,15 +904,15 @@
                 if (!user) return; 
 
                 const userItem = document.createElement('div');
-                userItem.className = `p-3 cursor-pointer border-b border-gray-700 transition duration-150 flex items-center justify-between 
-                                      ${selectedUser && selectedUser.userId === user.userId ? 'bg-indigo-700 hover:bg-indigo-800' : 'hover:bg-gray-700'}`;
+                userItem.className = `p-3 cursor-pointer border-b border-main transition duration-150 flex items-center justify-between 
+                                      ${selectedUser && selectedUser.userId === user.userId ? 'user-item-active' : 'hover:bg-gray-700'}`;
                 
                 userItem.innerHTML = `
-                    <div class="flex-grow" data-userid="${user.userId}">
-                        <p class="font-semibold text-white">${user.username}</p>
-                        <p class="text-xs text-gray-400 truncate">ID: ${user.userId}</p>
+                    <div class="flex-grow text-main" data-userid="${user.userId}">
+                        <p class="font-semibold">${user.username}</p>
+                        <p class="text-xs text-secondary truncate">ID: ${user.userId}</p>
                     </div>
-                    <button class="remove-user-btn text-gray-400 hover:text-red-400 transition duration-150 p-1 rounded-full ml-2" data-userid="${user.userId}">
+                    <button class="remove-user-btn text-secondary hover:text-red-400 transition duration-150 p-1 rounded-full ml-2" data-userid="${user.userId}">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                         </svg>
@@ -753,7 +928,7 @@
         async function removeRecentDm(otherUserId) {
              if (selectedUser && selectedUser.userId === otherUserId) {
                 selectedUser = null;
-                chatHeader.innerHTML = `<p class="text-lg font-semibold text-gray-400 italic">Select a user to start chatting</p>`;
+                chatHeader.innerHTML = `<p class="text-lg font-semibold text-secondary italic">Select a user to start chatting</p>`;
                 messageInputArea.classList.add('hidden');
                 messageContainer.innerHTML = '';
                 if (unsubscribeMessages) unsubscribeMessages();
@@ -781,16 +956,12 @@
             
             selectedUser = user;
             
-            chatHeader.innerHTML = `<p class="text-lg font-bold text-white">${selectedUser.username}</p><p class="text-xs text-gray-400">ID: ${selectedUser.userId}</p>`;
+            chatHeader.innerHTML = `<p class="text-lg font-bold text-main">${selectedUser.username}</p><p class="text-xs text-secondary">ID: ${selectedUser.userId}</p>`;
             messageInputArea.classList.remove('hidden');
-            messageContainer.innerHTML = '<p class="text-center text-gray-500 italic p-4">Loading messages...</p>';
+            messageContainer.innerHTML = '<p class="text-center text-secondary italic p-4">Loading messages...</p>';
             
-            // Clear image state when switching users
             cancelImage(); 
-            
-            // Re-run search/render to update highlight
             handleSearch(userSearchInput.value.trim()); 
-            
             listenToMessages(selectedUser.userId);
         }
 
@@ -820,7 +991,6 @@
                         if (newMessage.senderId === otherUserId) {
                             const sender = allUsersMap.get(otherUserId)?.username || 'Unknown User';
                             sendBrowserNotification(sender, newMessage);
-                            // Re-appearance Logic: Ensure the sender is un-removed in the current user's list
                             updateRecentDmStatus(currentUserId, otherUserId, newMessage.timestamp);
                         }
                     }
@@ -840,7 +1010,7 @@
                 await updateDoc(docRef, {
                     [updatePath]: {
                         lastMessageTimestamp: timestamp,
-                        removed: false // Key for re-appearance logic
+                        removed: false 
                     }
                 });
             } catch (error) {
@@ -852,7 +1022,7 @@
             messageContainer.innerHTML = '';
 
             if (messages.length === 0) {
-                messageContainer.innerHTML = '<p class="text-center text-gray-500 italic p-4">No messages yet. Start the conversation!</p>';
+                messageContainer.innerHTML = '<p class="text-center text-secondary italic p-4">No messages yet. Start the conversation!</p>';
                 return;
             }
 
@@ -864,10 +1034,15 @@
                 messageDiv.className = `flex ${isSender ? 'justify-end' : 'justify-start'}`;
                 
                 const bubble = document.createElement('div');
+                
+                // Dynamic Message Bubble Colors
+                const senderBg = 'bg-accent text-white rounded-br-none'; 
+                const receiverBg = 'bg-sidebar text-main rounded-tl-none';
+                
                 bubble.className = `max-w-xs md:max-w-md lg:max-w-lg p-3 rounded-xl shadow-md ${
                     isSender 
-                    ? 'bg-indigo-600 text-white rounded-br-none' 
-                    : 'bg-gray-700 text-gray-100 rounded-tl-none'
+                    ? senderBg
+                    : receiverBg
                 }`;
                 
                 const displayName = isSender ? currentUsername : otherUser?.username || 'Unknown User';
@@ -875,16 +1050,14 @@
                 let contentHTML = '';
 
                 if (msg.type === 'image' && msg.imageData) {
-                    // Render image. Added onclick to open image in new tab for full view.
                     contentHTML = `
-                        <img src="${msg.imageData}" class="max-w-full h-auto rounded-lg mb-2 border border-gray-600 cursor-pointer transition duration-150 hover:opacity-90" 
+                        <img src="${msg.imageData}" class="max-w-full h-auto rounded-lg mb-2 border border-main cursor-pointer transition duration-150 hover:opacity-90" 
                              style="max-height: 250px;" 
                              onerror="this.src='https://placehold.co/200x150/ef4444/ffffff?text=Image+Load+Error'"
                              onclick="window.open(this.src)">
                         ${msg.text ? `<p class="text-sm break-words">${msg.text}</p>` : ''}
                     `;
                 } else {
-                    // Render text (default or if image failed)
                     contentHTML = `<p class="text-sm break-words">${msg.text}</p>`;
                 }
 
@@ -906,10 +1079,8 @@
             
             const text = messageInput.value.trim();
             
-            // Check if both text and image are empty
             if (text === "" && !selectedImageBase64) return;
             
-            // Safety check for large files (Base64 can be larger than 1MB document limit)
             if (selectedImageBase64 && selectedImageBase64.length > 900000) { 
                 alertUser("Image file is too large to send! Please select a smaller image (must be under ~900KB Base64 payload).");
                 return;
@@ -924,7 +1095,6 @@
                     senderUsername: currentUsername, 
                     receiverId: selectedUser.userId,
                     timestamp: serverTimestamp(),
-                    // Default to text if image not present, otherwise override
                     type: 'text', 
                     text: text
                 };
@@ -932,7 +1102,6 @@
                 if (selectedImageBase64) {
                     messagePayload.type = 'image';
                     messagePayload.imageData = selectedImageBase64;
-                    // Keep text payload for captions if user typed one, otherwise it's just the image
                     messagePayload.text = text || ""; 
                 }
 
@@ -941,14 +1110,11 @@
 
                 await addDoc(messagesRef, messagePayload);
                 
-                // Clear input and image state after sending
                 messageInput.value = '';
                 cancelImage(); 
 
-                // 1. Update sender's (current user's) list
                 await updateRecentDmStatus(currentUserId, selectedUser.userId, writeTime);
                 
-                // 2. Update receiver's list
                 const receiverUpdatePromise = updateDoc(getUserDocRef(selectedUser.userId), {
                     [`recentDMs.${currentUserId}`]: {
                         lastMessageTimestamp: writeTime,
@@ -976,7 +1142,6 @@
 
             const alertDiv = document.createElement('div');
             alertDiv.id = 'custom-alert';
-            // Use yellow for warning
             alertDiv.className = 'fixed top-4 right-4 bg-yellow-500 text-gray-800 p-4 rounded-lg shadow-xl z-[99] transition-opacity duration-300 font-semibold';
             alertDiv.textContent = message;
             document.body.appendChild(alertDiv);
