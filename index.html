@@ -8,7 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Use Inter font -->
     <style>
-        @import url('https://fonts.fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
             /* Dark Mode Background */
@@ -88,6 +88,17 @@
                     <span>Change Name</span>
                 </button>
             </div>
+
+            <!-- Notification Settings Button -->
+            <div class="p-3 border-t border-gray-700">
+                <button id="notification-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 rounded-lg text-sm transition duration-150 flex items-center justify-center space-x-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-2.812A2.003 2.003 0 0118 13.001V10c0-2.206-1.554-4.084-3.864-4.636l-.358-.09A2.004 2.004 0 0010 6.636V13a2.003 2.003 0 01-.595 1.189L8 17h7zm-4 4a2 2 0 100-4 2 2 0 000 4z" />
+                    </svg>
+                    <span id="notification-btn-text">Enable Notifications</span>
+                </button>
+                <p id="notification-status" class="text-xs text-center mt-1 text-gray-400"></p>
+            </div>
         </div>
 
         <!-- Right Content (Chat Window) -->
@@ -139,11 +150,6 @@
         </div>
     </div>
     
-    <!-- Hidden Audio Element for Notifications -->
-    <audio id="notification-sound" preload="auto">
-        <!-- Source is set dynamically in the JavaScript to handle hosting limitations -->
-    </audio>
-
     <!-- Firebase Imports -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -153,11 +159,6 @@
 
         // Set Firebase logging level for debugging
         setLogLevel('Debug');
-
-        // --- AUDIO CONFIG (IMPORTANT) ---
-        // You MUST replace the link below with a full HTTPS URL to your hosted file.
-        const NOTIFICATION_SOUND_URL = "https://cdn.jsdelivr.net/gh/j-m/audio-assets@1.0.0/blop.mp3"; 
-        document.getElementById('notification-sound').src = NOTIFICATION_SOUND_URL;
 
         // --- GLOBAL VARIABLES (Provided by Environment or Fallback) ---
         const FALLBACK_FIREBASE_CONFIG = {
@@ -199,9 +200,6 @@
         // --- IMAGE STATE VARIABLE ---
         let selectedImageBase64 = null;
         
-        // --- AUDIO STATE VARIABLE ---
-        let audioWarned = false;
-
 
         // DOM Elements
         const loadingScreen = document.getElementById('loading-screen');
@@ -221,8 +219,13 @@
         const currentUserInfo = document.getElementById('current-user-info');
         const userSearchInput = document.getElementById('user-search-input');
         const changeNameBtn = document.getElementById('change-name-btn');
-        const notificationSound = document.getElementById('notification-sound');
         const searchResultsDiv = document.getElementById('search-results');
+        
+        // --- NOTIFICATION DOM Elements ---
+        const notificationBtn = document.getElementById('notification-btn');
+        const notificationBtnText = document.getElementById('notification-btn-text');
+        const notificationStatus = document.getElementById('notification-status');
+
         
         // --- IMAGE DOM Elements ---
         const imageUploadInput = document.getElementById('image-upload-input');
@@ -306,6 +309,8 @@
                 
                 hideLoadingScreen();
                 startAppListeners();
+                // Initial check for notification status
+                updateNotificationUI();
             } else {
                 loadingScreen.classList.add('hidden');
                 showProfileModal(false);
@@ -330,9 +335,6 @@
         
         /**
          * Checks if a username is already taken by querying the Firestore 'users' collection.
-         * @param {string} username The username to check.
-         * @param {string} excludeUserId The ID of the user to exclude from the check (the current user).
-         * @returns {Promise<boolean>} True if the username is taken, false otherwise.
          */
         async function isUsernameTaken(username, excludeUserId) {
             if (!db) return true; // Fail safe if DB not initialized
@@ -343,7 +345,6 @@
                 const snapshot = await getDocs(usernameQuery);
                 
                 // If the snapshot has results, check if any belong to a different user
-                // This is the core logic: username is taken if ANY returned doc ID does NOT match the excluded (current) user ID.
                 return snapshot.docs.some(doc => {
                     return doc.id !== excludeUserId;
                 });
@@ -396,6 +397,7 @@
                 
                 if (isInitialSetup) {
                     startAppListeners();
+                    updateNotificationUI(); // Check status on initial setup
                 } else {
                     // Refresh the user list and search results after name change
                     handleSearch(userSearchInput.value.trim()); 
@@ -437,9 +439,8 @@
             imageUploadInput.addEventListener('change', handleImageUpload);
             cancelImageBtn.addEventListener('click', cancelImage);
             
-            // --- AUDIO FIX: UNLOCK LISTENER ---
-            // Tries to unlock the browser's audio context on first click interaction
-            document.body.addEventListener('click', attemptAudioUnlock, { once: true });
+            // --- NOTIFICATION LISTENER ---
+            notificationBtn.addEventListener('click', requestNotificationPermission);
             
             userList.addEventListener('click', (e) => {
                 const target = e.target.closest('.remove-user-btn');
@@ -465,19 +466,79 @@
             });
         }
         
-        /**
-         * Attempts to play a silent sound to initialize the browser audio context.
-         */
-        function attemptAudioUnlock() {
-            notificationSound.volume = 0;
-            notificationSound.play().then(() => {
-                notificationSound.volume = 1;
-                console.log("Audio context successfully unlocked by user interaction.");
-            }).catch(e => {
-                console.warn("Initial audio unlock attempt failed or was not necessary.", e);
-            });
+        // --- NOTIFICATION HANDLERS (New) ---
+
+        function updateNotificationUI() {
+            if (!("Notification" in window)) {
+                notificationStatus.textContent = "Notifications not supported by this browser.";
+                notificationBtn.disabled = true;
+                return;
+            }
+
+            switch (Notification.permission) {
+                case "granted":
+                    notificationBtnText.textContent = "Notifications ON";
+                    notificationStatus.textContent = "Messages will pop up outside the app.";
+                    notificationBtn.className = notificationBtn.className.replace('bg-gray-700', 'bg-green-600').replace('hover:bg-gray-600', 'hover:bg-green-700');
+                    notificationBtn.disabled = true;
+                    break;
+                case "denied":
+                    notificationBtnText.textContent = "Notifications BLOCKED";
+                    notificationStatus.textContent = "Please check browser settings to re-enable.";
+                    notificationBtn.className = notificationBtn.className.replace('bg-green-600', 'bg-red-600').replace('hover:bg-gray-600', 'hover:bg-red-700');
+                    notificationBtn.disabled = true;
+                    break;
+                case "default":
+                default:
+                    notificationBtnText.textContent = "Enable Notifications";
+                    notificationStatus.textContent = "Click to receive desktop alerts.";
+                    notificationBtn.className = notificationBtn.className.replace('bg-green-600', 'bg-gray-700').replace('bg-red-600', 'bg-gray-700');
+                    notificationBtn.disabled = false;
+                    break;
+            }
+        }
+
+        async function requestNotificationPermission() {
+            if (!("Notification" in window)) {
+                alertUser("Your browser doesn't support notifications.");
+                return;
+            }
+            
+            // Use Notification.requestPermission to prompt the user
+            const permission = await Notification.requestPermission();
+            
+            updateNotificationUI();
+            
+            if (permission === "granted") {
+                alertUser("Notifications enabled! You'll receive desktop alerts for new messages.");
+            } else if (permission === "denied") {
+                alertUser("Notifications blocked. You must change your browser settings to allow them.");
+            }
         }
         
+        function sendBrowserNotification(senderUsername, messageText) {
+            if (Notification.permission === "granted" && document.hidden) {
+                let bodyText = messageText.text;
+                if (messageText.type === 'image') {
+                    bodyText = messageText.text ? `[Image] ${messageText.text}` : `[Image] Sent an image.`;
+                } else if (!bodyText) {
+                    bodyText = "[Empty message]";
+                }
+
+                // If the app is not currently visible, show a notification
+                const notification = new Notification(`New message from ${senderUsername}`, {
+                    body: bodyText.length > 50 ? bodyText.substring(0, 47) + '...' : bodyText,
+                    icon: 'https://placehold.co/48x48/6366f1/ffffff?text=DM', 
+                    tag: 'dm-message-received' // Prevents excessive stacking
+                });
+                
+                // Optional: focus the tab when the notification is clicked
+                notification.onclick = function () {
+                    window.focus();
+                };
+            }
+        }
+
         // --- IMAGE HANDLERS ---
         
         function cancelImage() {
@@ -633,8 +694,6 @@
 
         /**
          * Renders the recent DM user list, applying a filter if provided.
-         * @param {boolean} showAll If true, shows the full, un-filtered recent list.
-         * @param {string} filterTerm Filters by username/ID in recent list (only if showAll is false).
          */
         function renderUserList(showAll = true, filterTerm = "") {
             userList.innerHTML = '';
@@ -759,7 +818,8 @@
                         const newMessage = change.doc.data();
                         
                         if (newMessage.senderId === otherUserId) {
-                            playSound();
+                            const sender = allUsersMap.get(otherUserId)?.username || 'Unknown User';
+                            sendBrowserNotification(sender, newMessage);
                             // Re-appearance Logic: Ensure the sender is un-removed in the current user's list
                             updateRecentDmStatus(currentUserId, otherUserId, newMessage.timestamp);
                         }
@@ -788,26 +848,6 @@
             }
         }
         
-        /**
-         * Plays the notification sound, adding a user-friendly warning if it fails 
-         * due to browser audio policy restrictions.
-         */
-        function playSound() {
-            if (notificationSound) {
-                notificationSound.currentTime = 0; 
-                notificationSound.play().then(() => {
-                    // Audio played successfully
-                }).catch(error => {
-                    if (!audioWarned) {
-                        // Display a user alert only once if playback fails due to user interaction requirement
-                        alertUser("🔔 Notification sounds are blocked. Click anywhere in the app to enable them!");
-                        audioWarned = true;
-                        console.warn("Audio playback blocked. User interaction required to enable sound.", error);
-                    }
-                });
-            }
-        }
-
         function renderMessages(messages) {
             messageContainer.innerHTML = '';
 
