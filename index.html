@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dihcord (Login Enabled)</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Use Inter font -->
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-800 text-gray-100 h-screen overflow-hidden flex">
+
+    <!-- Firebase SDK Imports -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        // Updated Auth imports for login/signup/logout
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        // FIX: Ensure all necessary firestore methods, including getDocs, are imported
+        import { getFirestore, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, setLogLevel, setDoc, doc, getDoc, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Firebase variables
+        let app, db, auth, userId;
+        let isAuthReady = false;
+        let displayName = ''; 
+        let isMediaMode = false;
+        let isUserLoggedIn = false; // New state to manage login UI vs chat UI
+        
+        // DM/Channel State
+        let activeChatId = 'general'; // 'general' or a specific DM roomId (e.g., userA_userB)
+        let activeChatName = '# General Chat';
+        let dmRecipientId = null; // Used for sending DMs
+        let unsubscribeChat = null; // Stores the function to stop the current Firestore listener
+        let dmList = []; // Array to store user IDs of active DMs
+
+        // --- Core Firebase Initialization and Auth ---
+
+        const initFirebaseAndChat = async () => {
+            try {
+                // 1. Get Configs (MANDATORY)
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+
+                // Set Firestore log level for debugging
+                setLogLevel('error');
+                
+                // Load display name from local storage before auth
+                const storedName = localStorage.getItem('chatDisplayName');
+                if (storedName) {
+                    displayName = storedName;
+                }
+
+                // 2. Initialize Firebase App
+                if (Object.keys(firebaseConfig).length === 0) {
+                    console.error("Firebase configuration is missing. Cannot initialize Firestore.");
+                    document.getElementById('loading-state').innerHTML = 'Error: Firebase config missing.';
+                    return;
+                }
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                // Show the Login/Loading container initially
+                document.getElementById('auth-container').classList.remove('hidden');
+
+                // 3. Handle Authentication State Change
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        isUserLoggedIn = true;
+                        isAuthReady = true;
+                        
+                        await fetchUserProfile(appId, userId);
+                        
+                        updateDisplayNameUI(); 
+                        
+                        // Switch from login screen to chat screen
+                        document.getElementById('auth-container').classList.add('hidden');
+                        document.getElementById('chat-app-container').classList.remove('hidden');
+                        
+                        console.log("Authenticated. UID:", userId);
+                        
+                        // FIX: Defer listener setup using setTimeout to allow the auth context to fully settle.
+                        setTimeout(() => {
+                            setupRealtimeListener(activeChatId);
+                            setupDmListListener(appId); 
+                        }, 0);
+
+                    } else {
+                        userId = null;
+                        isUserLoggedIn = false;
+                        isAuthReady = false;
+                        displayName = '';
+                        
+                        // Show the login form if not authenticated
+                        document.getElementById('loading-state').classList.add('hidden');
+                        document.getElementById('login-form').classList.remove('hidden');
+
+                        // Attempt sign in with token if available (to skip login for authenticated users)
+                        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                        if (initialAuthToken) {
+                            try {
+                                await signInWithCustomToken(auth, initialAuthToken);
+                            } catch (e) {
+                                console.log("Token sign-in failed, showing login form.");
+                                document.getElementById('loading-state').classList.add('hidden');
+                                document.getElementById('login-form').classList.remove('hidden');
+                            }
+                        } else {
+                            // No token, show login form immediately
+                            document.getElementById('loading-state').classList.add('hidden');
+                            document.getElementById('login-form').classList.remove('hidden');
+                        }
+                    }
+                });
+
+            } catch (error) {
+                console.error("Error during Firebase initialization:", error);
+                document.getElementById('loading-state').innerHTML = `Error: ${error.message}`;
+            }
+        }
+        
+        // --- User Profile Management ---
+
+        // Helper function to check if the new name is globally unique
+        const isDisplayNameAvailable = async (appId, newName, currentUserId) => {
+            const usersRef = collection(db, `artifacts/${appId}/public/data/users`);
+            // Query for any user profile with the exact newName
+            const q = query(usersRef, where('displayName', '==', newName));
+            
+            try {
+                const querySnapshot = await getDocs(q);
+                
+                // If a document is found...
+                if (!querySnapshot.empty) {
+                    const existingUserDoc = querySnapshot.docs[0];
+                    // ...check if the found document belongs to the current user.
+                    if (existingUserDoc.id !== currentUserId) {
+                        return false; // Name taken by someone else
+                    }
+                }
+                return true; // Name is available or belongs to the current user
+            } catch (e) {
+                console.error("Error checking display name availability:", e);
+                // Fail safe: assume not available if database error occurs
+                return false; 
+            }
+        }
+        
+        const fetchUserProfile = async (appId, uid) => {
+            const userDocRef = doc(db, `artifacts/${appId}/public/data/users`, uid);
+            try {
+                const userDoc = await getDoc(userDocRef); 
+                if (userDoc.exists()) {
+                    displayName = userDoc.data().displayName || 'User' + uid.substring(0, 4);
+                } else {
+                    // If no profile, use a default name
+                    displayName = 'User' + uid.substring(0, 4);
+                    // And create the profile
+                    await setDoc(userDocRef, { 
+                        displayName: displayName,
+                        createdAt: serverTimestamp(),
+                        userId: uid
+                    });
+                }
+                localStorage.setItem('chatDisplayName', displayName);
+            } catch (e) {
+                console.error("Error fetching/creating user profile:", e);
+                // Fallback name
+                displayName = 'Anon' + uid.substring(0, 4);
+            }
+        }
+
+        const saveUserProfileName = async (appId, uid, newName) => {
+             const userDocRef = doc(db, `artifacts/${appId}/public/data/users`, uid);
+             try {
+                 // Save the new name, ensuring the displayName field is updated for lookups
+                 await setDoc(userDocRef, { displayName: newName, userId: uid }, { merge: true });
+                 return true;
+             } catch (e) {
+                 console.error("Error saving user profile name:", e);
+                 return false;
+             }
+        }
+        
+        // --- Login/Sign Up Logic ---
+
+        window.handleAuthAction = async (isSignup) => {
+            const emailInput = document.getElementById('auth-email');
+            const passwordInput = document.getElementById('auth-password');
+            const status = document.getElementById('auth-status');
+            
+            const email = emailInput.value.trim();
+            const password = passwordInput.value.trim();
+
+            status.textContent = "Processing...";
+            status.classList.remove('hidden', 'text-red-500', 'text-green-500');
+            status.classList.add('text-indigo-500');
+
+            if (password.length < 6) {
+                status.textContent = "Password must be at least 6 characters long.";
+                status.classList.remove('text-indigo-500');
+                status.classList.add('text-red-500');
+                return;
+            }
+
+            try {
+                if (isSignup) {
+                    await createUserWithEmailAndPassword(auth, email, password);
+                    // The onAuthStateChanged listener will handle the rest (setting profile, switching UI)
+                    status.textContent = "Sign Up Successful! Logging you in...";
+                } else {
+                    await signInWithEmailAndPassword(auth, email, password);
+                    // The onAuthStateChanged listener will handle the rest
+                    status.textContent = "Login Successful! Welcome back!";
+                }
+                status.classList.remove('text-red-500');
+                status.classList.add('text-green-500');
+                // Clear inputs on success
+                emailInput.value = '';
+                passwordInput.value = '';
+
+            } catch (error) {
+                console.error("Auth error:", error);
+                status.textContent = error.message.replace('Firebase: Error ', '').replace('(auth/', ' (');
+                status.classList.remove('text-indigo-500');
+                status.classList.add('text-red-500');
+            }
+        }
+
+        window.handleLogout = async () => {
+            try {
+                await signOut(auth);
+                showNotification("Logged out successfully.", 'green');
+                // Hide chat and show login form again
+                document.getElementById('chat-app-container').classList.add('hidden');
+                document.getElementById('auth-container').classList.remove('hidden');
+                document.getElementById('login-form').classList.remove('hidden');
+            } catch (error) {
+                console.error("Logout error:", error);
+                showNotification('Logout failed.', 'red');
+            }
+        }
+
+        // --- Helper Functions ---
+
+        const isImageUrl = (str) => {
+            if (!str) return false;
+            const urlPattern = /^(https?:\/\/.+)/i;
+            const isUrlFormat = urlPattern.test(str);
+            const isImageExtension = /\.(gif|jpe?g|tiff|png|webp|bmp)(\?.*)?$/i.test(str);
+            return isUrlFormat && isImageExtension;
+        }
+
+        // Creates a unique room ID by sorting UIDs
+        const getDmRoomId = (otherUserId) => {
+            if (!userId || !otherUserId) return null;
+            const sortedIds = [userId, otherUserId].sort();
+            return sortedIds.join('_');
+        }
+
+        // --- UI Updates ---
+
+        const updateDisplayNameUI = () => {
+            const nameInput = document.getElementById('new-display-name-input');
+            const idDisplay = document.getElementById('user-id-display');
+            
+            if (nameInput) {
+                nameInput.value = displayName;
+            }
+            if (idDisplay && userId) {
+                // IMPORTANT: Show the full ID for users to copy/paste
+                idDisplay.innerHTML = `${displayName || 'Anonymous'} | <span class="text-yellow-400 font-mono text-[10px] sm:text-xs break-all">${userId}</span>`;
+            }
+            updateInputPlaceholder();
+        }
+
+        const updateChatHeaderUI = () => {
+            const header = document.getElementById('chat-header-name');
+            const desc = document.getElementById('chat-header-desc');
+            header.textContent = activeChatName;
+            desc.textContent = activeChatId === 'general' 
+                ? 'A public, real-time chat powered by Firestore, now with image embeds!' 
+                : 'A private Direct Message conversation.';
+        }
+
+        const updateDmListUI = () => {
+            const listContainer = document.getElementById('dm-list-container');
+            listContainer.innerHTML = '';
+            
+            if (dmList.length === 0) {
+                 listContainer.innerHTML = `<p class="text-xs text-gray-500 text-center py-2">No active DMs. Start one below!</p>`;
+                 return;
+            }
+
+            dmList.forEach(dmRecipient => {
+                const recipientId = dmRecipient.recipientId;
+                const roomId = getDmRoomId(recipientId);
+                const isActive = roomId === activeChatId;
+                // Check if the recipient ID is the current user's, and skip rendering if it is
+                if (recipientId === userId) return; 
+
+                const buttonClass = isActive 
+                    ? 'bg-indigo-600/50 text-white font-semibold' 
+                    : 'bg-gray-800/50 text-gray-300 hover:bg-gray-700/50';
+
+                const dmButton = document.createElement('button');
+                dmButton.className = `flex items-center w-full p-2 rounded-lg transition-colors ${buttonClass}`;
+                // Using recipient name if available, otherwise defaulting to ID prefix
+                const dmName = dmRecipient.displayName || `DM: ${recipientId.substring(0, 8)}...`;
+                dmButton.onclick = () => switchChat(roomId, dmName, recipientId);
+
+                dmButton.innerHTML = `
+                    <div class="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
+                    <span class="truncate text-sm">${dmName}</span>
+                `;
+                listContainer.appendChild(dmButton);
+            });
+        }
+
+        window.setDisplayName = async () => {
+            const input = document.getElementById('new-display-name-input');
+            const status = document.getElementById('name-status');
+            let newName = input.value.trim();
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+            if (newName.length < 2 || newName.length > 20) {
+                status.textContent = "Name must be 2-20 characters long.";
+                status.classList.remove('hidden', 'text-green-500');
+                status.classList.add('text-red-500');
+                setTimeout(() => status.classList.add('hidden'), 3000);
+                return;
+            }
+            
+            // Sanitize name: remove non-alphanumeric/non-space characters
+            newName = newName.replace(/[^\w\s]/gi, '');
+            
+            // --- NEW: Check for uniqueness across all users ---
+            const isAvailable = await isDisplayNameAvailable(appId, newName, userId);
+            
+            if (!isAvailable) {
+                status.textContent = "That display name is already taken by another user.";
+                status.classList.remove('hidden', 'text-green-500');
+                status.classList.add('text-red-500');
+                setTimeout(() => status.classList.add('hidden'), 3000);
+                return;
+            }
+            // --- END NEW CHECK ---
+            
+            if (await saveUserProfileName(appId, userId, newName)) {
+                localStorage.setItem('chatDisplayName', newName);
+                displayName = newName;
+                updateDisplayNameUI();
+
+                status.textContent = "Display name updated!";
+                status.classList.remove('hidden', 'text-red-500');
+                status.classList.add('text-green-500');
+            } else {
+                status.textContent = "Error updating name.";
+                status.classList.remove('hidden', 'text-green-500');
+                status.classList.add('text-red-500');
+            }
+            setTimeout(() => status.classList.add('hidden'), 3000);
+        }
+
+        const updateInputPlaceholder = () => {
+            const input = document.getElementById('message-input');
+            const button = document.getElementById('media-toggle-button');
+            if (!input || !button) return;
+
+            if (isMediaMode) {
+                input.placeholder = "PASTE IMAGE URL (.jpg, .png, .gif) and hit Send...";
+                button.classList.remove('bg-gray-600', 'text-gray-300');
+                button.classList.add('bg-indigo-500', 'text-white', 'ring-2', 'ring-indigo-300');
+            } else {
+                input.placeholder = `Message ${activeChatName} (Press Enter to send)`;
+                button.classList.remove('bg-indigo-500', 'text-white', 'ring-2', 'ring-indigo-300');
+                button.classList.add('bg-gray-600', 'text-gray-300');
+            }
+        }
+
+        window.toggleMediaMode = () => {
+            isMediaMode = !isMediaMode;
+            updateInputPlaceholder();
+            document.getElementById('message-input').focus();
+        }
+        
+        // --- DM List Management ---
+        
+        const setupDmListListener = (appId) => {
+            // FIX: Guard against running before authentication is ready
+            if (!isAuthReady || !userId) return;
+
+            // Path: /artifacts/{appId}/users/{userId}/dm_recipients (Private Collection)
+            const path = `artifacts/${appId}/users/${userId}/dm_recipients`; 
+            const dmRef = collection(db, path);
+            
+            // Query is simpler as the path is already scoped by userId
+            const q = query(dmRef, orderBy('lastContact', 'desc')); 
+            
+            // Listen to the user's list of people they have DM'd
+            onSnapshot(q, (snapshot) => {
+                dmList = [];
+                snapshot.forEach(doc => {
+                    dmList.push({ id: doc.id, ...doc.data() });
+                });
+                updateDmListUI();
+            }, (error) => {
+                console.error("Error listening to DM list:", error);
+            });
+        }
+        
+        const saveDmRecipient = async (initiatorId, recipientId, recipientName) => {
+            try {
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                
+                // 1. Save to INITIATOR's list (Private Collection)
+                // Path: /artifacts/{appId}/users/{initiatorId}/dm_recipients/{recipientId}
+                const initiatorPath = `artifacts/${appId}/users/${initiatorId}/dm_recipients`;
+                const initiatorDocId = recipientId; // Doc ID is the recipient's ID
+                
+                await setDoc(doc(db, initiatorPath, initiatorDocId), { 
+                    recipientId: recipientId, 
+                    displayName: recipientName, // Store the name for the UI
+                    lastContact: serverTimestamp()
+                }, { merge: true });
+                
+                // 2. Save to RECIPIENT's list so it appears in their sidebar too (Private Collection)
+                // Path: /artifacts/{appId}/users/{recipientId}/dm_recipients/{initiatorId}
+                const recipientPath = `artifacts/${appId}/users/${recipientId}/dm_recipients`;
+                const recipientDocId = initiatorId; // Doc ID is the initiator's ID
+                
+                 await setDoc(doc(db, recipientPath, recipientDocId), { 
+                    recipientId: initiatorId, 
+                    displayName: displayName, // Store the initiator's name
+                    lastContact: serverTimestamp()
+                }, { merge: true });
+
+            } catch (e) {
+                console.error("Error saving DM recipient:", e);
+            }
+        }
+
+        // Helper function to find User ID by Display Name
+        const getUserIdByDisplayName = async (appId, searchName) => {
+            const usersRef = collection(db, `artifacts/${appId}/public/data/users`);
+            const q = query(usersRef, where('displayName', '==', searchName));
+            
+            try {
+                const querySnapshot = await getDocs(q); 
+                if (!querySnapshot.empty) {
+                    return querySnapshot.docs[0].id; // Return the user ID (document ID)
+                }
+                return null;
+            } catch (e) {
+                console.error("Error finding user by display name:", e);
+                return null;
+            }
+        }
+
+        window.startDM = async () => {
+            const recipientInput = document.getElementById('dm-recipient-input');
+            const recipientName = recipientInput.value.trim();
+            recipientInput.value = ''; // Clear input
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+            if (!recipientName) {
+                 showNotification("DM Error: Please enter a display name.", 'red');
+                return;
+            }
+            
+            // --- NEW: Look up the User ID from the Display Name ---
+            const recipientId = await getUserIdByDisplayName(appId, recipientName);
+
+            if (!recipientId) {
+                showNotification(`User '${recipientName}' not found. Check the spelling.`, 'red');
+                return;
+            }
+            
+            if (recipientId === userId) {
+                 showNotification("DM Error: Cannot DM yourself.", 'red');
+                return;
+            }
+            // --- END NEW LOOKUP ---
+
+            const roomId = getDmRoomId(recipientId);
+            
+            // 1. Save recipient to user's DM list (to show in sidebar)
+            saveDmRecipient(userId, recipientId, recipientName);
+
+            // 2. Switch to the new DM chat
+            switchChat(roomId, `DM: ${recipientName}`, recipientId);
+
+            showNotification(`Starting DM with ${recipientName}...`, 'green');
+        }
+
+        window.switchChat = (newChatId, newChatName, recipient = null) => {
+            // Guard against switching chat if auth is not ready
+            if (!isAuthReady || !userId) {
+                showNotification("Authentication not ready. Cannot switch chat.", 'red');
+                return;
+            }
+
+            // 1. Unsubscribe from the old listener
+            if (unsubscribeChat) {
+                unsubscribeChat();
+            }
+
+            // 2. Update state
+            activeChatId = newChatId;
+            activeChatName = newChatName;
+            dmRecipientId = recipient; // Store the *other* user's ID if this is a DM
+            
+            // 3. Update UI (Header, Placeholder, Sidebar)
+            updateChatHeaderUI();
+            updateInputPlaceholder();
+            updateDmListUI();
+            const messageInput = document.getElementById('message-input');
+            if (messageInput) messageInput.focus();
+            
+            // 4. Set up new listener
+            setupRealtimeListener(newChatId); 
+            // Reset chat box visually while waiting for data
+            const chatBox = document.getElementById('chat-box');
+            if(chatBox) {
+                chatBox.innerHTML = `
+                    <div id="loading-state" class="p-4 text-center text-indigo-400 animate-pulse">
+                        Loading ${newChatName} messages...
+                    </div>
+                `;
+            }
+            
+            // Update button styles in sidebar
+            const generalBtn = document.getElementById('general-channel-button');
+            if(generalBtn) {
+                if (newChatId === 'general') {
+                    generalBtn.style.backgroundColor = '#4f46e533';
+                    generalBtn.style.color = '#a5b4fc';
+                } else {
+                    generalBtn.style.backgroundColor = 'transparent';
+                    generalBtn.style.color = '#ccc';
+                }
+            }
+        }
+
+
+        // --- Firestore Real-time Listener (Handles both General and DM) ---
+
+        const setupRealtimeListener = (chatId) => {
+             // FIX: Guard against running before authentication is ready
+            if (!isAuthReady || !userId) {
+                 console.log("Firestore Listener skipped: Authentication not ready.");
+                 return;
+            }
+
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            let path;
+            
+            if (chatId === 'general') {
+                // Public Channel Path
+                path = `artifacts/${appId}/public/data/messages`;
+            } else {
+                // DM Path (Public for two-user room): /artifacts/{appId}/public/data/dms/{roomId}/messages
+                path = `artifacts/${appId}/public/data/dms/${chatId}/messages`;
+            }
+
+            const messagesRef = collection(db, path);
+            const q = query(messagesRef, orderBy('timestamp')); 
+
+            unsubscribeChat = onSnapshot(q, (snapshot) => {
+                const messages = [];
+                snapshot.forEach(doc => {
+                    messages.push({ id: doc.id, ...doc.data() });
+                });
+
+                renderMessages(messages);
+            }, (error) => {
+                console.error("Error listening to Firestore:", error);
+            });
+
+            const loadingState = document.getElementById('loading-state');
+            if(loadingState) loadingState.innerHTML = '';
+        }
+        
+        const showNotification = (message, color) => {
+             const chatContainer = document.querySelector('.flex-grow.flex-col');
+             if (!chatContainer) return;
+             
+             const notification = document.createElement('div');
+             notification.className = `absolute top-3 right-3 p-3 rounded-lg text-sm shadow-xl z-50 bg-${color}-600 text-white`;
+             notification.textContent = message;
+             chatContainer.appendChild(notification);
+             setTimeout(() => notification.remove(), 4000);
+        }
+
+        // --- Send Message Function (Handles Text, Media, General, and DM) ---
+
+        window.sendMessage = async () => {
+            const input = document.getElementById('message-input');
+            const content = input.value.trim();
+
+            if (!isAuthReady || !userId) {
+                showNotification("Authentication not ready. Please wait.", 'red');
+                return;
+            }
+
+            if (content) {
+                try {
+                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                    let path;
+
+                    if (activeChatId === 'general') {
+                        path = `artifacts/${appId}/public/data/messages`;
+                    } else {
+                        // DM path
+                        path = `artifacts/${appId}/public/data/dms/${activeChatId}/messages`;
+                    }
+                    
+                    let messageData = {
+                        userId: userId,
+                        displayName: displayName || 'Anonymous',
+                        timestamp: serverTimestamp(),
+                        chatId: activeChatId, 
+                    };
+
+                    // Handle Media Mode
+                    if (isMediaMode && isImageUrl(content)) { 
+                        messageData.type = 'media';
+                        messageData.url = content;
+                        isMediaMode = false;
+                        updateInputPlaceholder();
+                    } else if (isMediaMode && !isImageUrl(content)) {
+                        showNotification("Media Error: Invalid image URL. Enter a valid URL or toggle media mode off.", 'red');
+                        return;
+                    } else {
+                        // Default to text mode
+                        messageData.type = 'text';
+                        messageData.content = content;
+                    }
+
+                    await addDoc(collection(db, path), messageData);
+                    input.value = ''; // Clear input field
+
+                } catch (error) {
+                    console.error("Error sending message:", error);
+                    showNotification('Failed to send message. Check console for details.', 'red');
+                }
+            }
+        }
+
+        // --- UI Rendering ---
+
+        const renderMessages = (messages) => {
+            const chatBox = document.getElementById('chat-box');
+            if (!chatBox) return;
+            
+            chatBox.innerHTML = ''; 
+
+            if (messages.length === 0) {
+                chatBox.innerHTML = `
+                    <div class="p-4 text-center text-gray-500">
+                        <svg class="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        ${activeChatId === 'general' ? 'Start the public conversation!' : 'You are the first one here. Say hello!'}
+                    </div>
+                `;
+                return;
+            }
+
+            messages.forEach(msg => {
+                const date = msg.timestamp ? new Date(msg.timestamp.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...';
+                
+                const isMine = msg.userId === userId;
+                
+                const displayedSenderName = isMine 
+                    ? (displayName || 'You') 
+                    : (msg.displayName || `${msg.userId.substring(0, 8)}...`); 
+
+                let messageContentHTML = '';
+                
+                if (msg.type === 'media' && msg.url) {
+                    messageContentHTML = `
+                        <div class="space-y-2">
+                            <a href="${msg.url}" target="_blank" class="text-indigo-300 hover:underline break-all block text-xs">
+                                Click to open full image
+                            </a>
+                            <img src="${msg.url}" 
+                                alt="Embedded media" 
+                                onerror="this.onerror=null;this.src='https://placehold.co/300x150/4f46e5/ffffff?text=Image+Failed+to+Load';"
+                                class="max-w-full sm:max-w-md max-h-64 rounded-lg shadow-lg mt-1 object-cover cursor-pointer transition-opacity"
+                            >
+                        </div>
+                    `;
+                } else {
+                    messageContentHTML = `<p class="text-base break-words">${msg.content}</p>`;
+                }
+
+
+                const messageElement = document.createElement('div');
+                messageElement.className = `flex p-2 hover:bg-gray-700/50 transition-colors ${isMine ? 'justify-end' : 'justify-start'}`;
+
+                messageElement.innerHTML = `
+                    <div class="max-w-3/4 rounded-lg px-3 py-2 ${isMine ? 'bg-indigo-600 text-white shadow-lg' : 'bg-gray-700 text-gray-200'}">
+                        <div class="flex items-baseline mb-1">
+                            <span class="font-bold text-sm ${isMine ? 'text-indigo-200' : 'text-blue-400'} mr-2">${displayedSenderName}</span>
+                            <span class="text-xs ${isMine ? 'text-indigo-300' : 'text-gray-400'}">${date}</span>
+                        </div>
+                        ${messageContentHTML}
+                    </div>
+                `;
+                chatBox.appendChild(messageElement);
+            });
+
+            // Auto-scroll to the bottom
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        // --- Event Listeners and Initial Load ---
+        window.addEventListener('load', initFirebaseAndChat);
+
+    </script>
+    
+    <!-- Authentication Container (Shown before login) -->
+    <div id="auth-container" class="fixed inset-0 bg-gray-900 flex items-center justify-center z-50 hidden">
+        <div id="loading-state" class="text-xl text-indigo-400 animate-pulse">
+            Connecting to Chat Service...
+        </div>
+
+        <div id="login-form" class="hidden bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-sm border border-gray-700 space-y-6">
+            <h2 class="text-3xl font-extrabold text-white text-center">Dihcord Login</h2>
+            <p class="text-gray-400 text-sm text-center">Use a new email/password to sign up, or log in if you already have an account. (Password must be 6+ characters)</p>
+
+            <input 
+                type="email"
+                id="auth-email"
+                placeholder="Email"
+                class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                required
+            >
+            <input 
+                type="password"
+                id="auth-password"
+                placeholder="Password (Min 6 characters)"
+                class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                required
+                onkeydown="if(event.key === 'Enter') { handleAuthAction(false); }"
+            >
+            
+            <p id="auth-status" class="text-center text-sm font-medium hidden"></p>
+
+            <div class="space-y-3 pt-2">
+                <button 
+                    onclick="handleAuthAction(false)"
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-lg transition duration-150 ease-in-out shadow-lg"
+                >
+                    Log In
+                </button>
+                <button 
+                    onclick="handleAuthAction(true)"
+                    class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition duration-150 ease-in-out shadow-lg"
+                >
+                    Sign Up
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Chat Application Container (Hidden until logged in) -->
+    <div id="chat-app-container" class="flex flex-grow h-full w-full hidden">
+        <!-- Sidebar (Channels/Users) -->
+        <div class="w-20 sm:w-64 bg-gray-900 flex-shrink-0 flex flex-col">
+            <div class="p-3 font-semibold text-lg border-b border-gray-700">
+                <span class="hidden sm:inline">Dihcord</span>
+                <span class="sm:hidden text-indigo-400">DH</span>
+            </div>
+            
+            <div class="flex-grow p-3 overflow-y-auto">
+                
+                <!-- Channels -->
+                <h2 class="text-xs font-semibold uppercase text-gray-400 mb-2">Channels</h2>
+                <button onclick="switchChat('general', '# General Chat', null)"
+                    class="flex items-center w-full p-2 rounded-lg font-medium mb-2 transition-colors"
+                    id="general-channel-button"
+                    style="background-color: #4f46e533; color: #a5b4fc;"
+                >
+                    <span class="text-xl mr-2">#</span> General Chat
+                </button>
+                
+                <!-- DM List -->
+                <h2 class="text-xs font-semibold uppercase text-gray-400 mt-4 mb-2">Direct Messages</h2>
+                <div id="dm-list-container" class="space-y-1">
+                    <p class="text-xs text-gray-500 text-center py-2">Loading DMs...</p>
+                </div>
+
+                <!-- Start DM Input -->
+                <div class="mt-4 pt-2 border-t border-gray-700">
+                    <h3 class="text-xs font-semibold uppercase text-gray-400 mb-2">Start a New DM (By Name)</h3>
+                    <input 
+                        type="text"
+                        id="dm-recipient-input"
+                        placeholder="Enter Display Name"
+                        class="w-full bg-gray-700 text-xs p-1.5 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-1"
+                        onkeydown="if(event.key === 'Enter') { startDM(); }"
+                    >
+                    <button 
+                        onclick="startDM()"
+                        class="w-full bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium py-1.5 rounded-md transition-colors shadow-sm"
+                    >
+                        Start DM
+                    </button>
+                </div>
+            </div>
+
+            <!-- Profile / User ID Section -->
+            <div class="p-3 border-t border-gray-700 bg-gray-900">
+                <h2 class="text-xs font-semibold uppercase text-gray-400 mb-2">My Profile</h2>
+                <div class="bg-gray-800 p-2 rounded-lg space-y-2 border border-gray-700">
+                    <input 
+                        type="text"
+                        id="new-display-name-input"
+                        placeholder="Set Unique Name (2-20 chars)"
+                        class="w-full bg-gray-700 text-sm p-1.5 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        onkeydown="if(event.key === 'Enter') { setDisplayName(); }"
+                    >
+                    <button 
+                        onclick="setDisplayName()"
+                        class="w-full bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-medium py-1.5 rounded-md transition-colors shadow-sm"
+                    >
+                        Set Unique Name
+                    </button>
+                    <p id="name-status" class="text-center text-xs hidden font-medium"></p>
+                    <p id="user-id-display" class="text-gray-300 truncate text-xs">
+                        User ID: <span class="text-yellow-400">Loading...</span>
+                    </p>
+                    <button 
+                        onclick="handleLogout()"
+                        class="w-full bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-1.5 rounded-md transition-colors shadow-sm mt-2"
+                    >
+                        Log Out
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Chat Area -->
+        <div class="flex flex-col flex-grow relative">
+            <!-- Chat Header -->
+            <div class="p-3 border-b border-gray-700 bg-gray-700 shadow-md">
+                <h1 id="chat-header-name" class="text-xl font-bold"># General Chat</h1>
+                <p id="chat-header-desc" class="text-sm text-gray-400">A public, real-time chat powered by Firestore, now with image embeds!</p>
+            </div>
+
+            <!-- Chat Messages -->
+            <div id="chat-box" class="flex-grow overflow-y-auto p-4 space-y-3">
+                <!-- Messages will be rendered here -->
+            </div>
+
+            <!-- Message Input -->
+            <div class="p-4 bg-gray-700">
+                <div class="flex items-center">
+                    <!-- MEDIA BUTTON -->
+                    <button 
+                        onclick="toggleMediaMode()"
+                        id="media-toggle-button"
+                        class="mr-3 p-3 bg-gray-600 hover:bg-gray-500 text-gray-300 rounded-lg transition duration-150 ease-in-out"
+                        title="Toggle Media Mode (Paste Image URL)"
+                    >
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    </button>
+
+                    <input 
+                        type="text"
+                        id="message-input"
+                        placeholder="Message #General Chat (Press Enter to send)"
+                        class="flex-grow bg-gray-600 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition duration-150"
+                        onkeydown="if(event.key === 'Enter') { sendMessage(); }"
+                    >
+                    <button 
+                        onclick="sendMessage()"
+                        class="ml-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-5 rounded-lg transition duration-150 ease-in-out shadow-lg transform hover:scale-[1.02]"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
