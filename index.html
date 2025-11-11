@@ -67,14 +67,28 @@
         #app .bg-accent { background-color: var(--color-accent); }
         #app .hover-bg-accent:hover { background-color: var(--color-accent); opacity: 0.9; }
         
-        /* Input/Button Styling */
+        /* --- ENHANCED OUTLINES AND FOCUS STYLING (The fix) --- */
         #app input { 
             background-color: var(--color-bg-secondary); 
             color: var(--color-text-main);
-            border-color: var(--color-border);
+            border: 1px solid var(--color-border); /* Explicit default border */
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.1); /* Subtle shadow for definition */
+            transition: all 150ms ease-in-out;
         }
-        #app .user-item-active { background-color: color-mix(in srgb, var(--color-accent) 60%, var(--color-bg-primary)); }
+        /* Highlight input border and add a glow ring on focus */
+        #app input:focus {
+            outline: none;
+            border-width: 2px;
+            border-color: var(--color-accent) !important; 
+            /* Custom focus ring/glow using box-shadow */
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 40%, transparent); 
+        }
 
+        /* Enhanced active user item: Stronger border on the left */
+        #app .user-item-active { 
+            background-color: color-mix(in srgb, var(--color-accent) 60%, var(--color-bg-primary)); 
+            border-left: 5px solid var(--color-accent); 
+        }
 
         /* Custom Scrollbar for Theming */
         .custom-scrollbar::-webkit-scrollbar { width: 8px; }
@@ -91,7 +105,7 @@
 <body class="min-h-screen flex items-center justify-center p-4">
 
     <!-- Main App Container - Theme class will be applied here -->
-    <div id="app" class="w-full max-w-5xl h-[85vh] shadow-2xl rounded-xl flex overflow-hidden theme-dark-default">
+    <div id="app" class="w-full max-w-5xl h-[85vh] shadow-2xl rounded-xl flex overflow-hidden theme-dark-default border border-main">
         
         <!-- Loading Screen (Initial state) -->
         <div id="loading-screen" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-gray-900/90 text-white transition-opacity duration-300">
@@ -104,10 +118,10 @@
 
         <!-- Profile Setup/Change Modal (Reused) -->
         <div id="profile-modal" class="hidden absolute inset-0 z-50 flex items-center justify-center bg-gray-900/90 p-4">
-            <div class="bg-gray-700 p-8 rounded-xl shadow-2xl w-full max-w-sm">
+            <div class="bg-gray-700 p-8 rounded-xl shadow-2xl w-full max-w-sm border border-main">
                 <h2 class="text-xl font-bold mb-4 text-white" id="profile-modal-title">Set Up Your Profile</h2>
                 <p class="text-gray-300 mb-4" id="profile-modal-text">Please choose a **unique** username to start chatting.</p>
-                <input type="text" id="username-input" placeholder="Enter your unique username" class="w-full p-3 rounded-lg bg-gray-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150">
+                <input type="text" id="username-input" placeholder="Enter your unique username" class="w-full p-3 rounded-lg bg-gray-600 text-white placeholder-gray-400 transition duration-150">
                 <p id="username-error" class="text-red-400 text-sm mt-2 hidden">That username is already taken or invalid.</p>
                 <button id="save-profile-btn" class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-lg shadow-md transition duration-150">
                     Save Profile
@@ -133,7 +147,7 @@
                     <p class="text-sm text-secondary mb-3">
                         Current User: <span class="text-main font-mono text-xs" id="settings-current-user-id"></span>
                     </p>
-                    <button id="settings-change-name-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 rounded-lg text-sm transition duration-150 flex items-center justify-center space-x-2">
+                    <button id="settings-change-name-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 rounded-lg text-sm transition duration-150 flex items-center justify-center space-x-2 shadow-md">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                         <span>Change Username (<span id="settings-current-username"></span>)</span>
                     </button>
@@ -152,7 +166,7 @@
                 <div class="mb-4">
                     <h3 class="text-xl font-semibold text-accent mb-3">Device Notifications</h3>
                     <p class="text-sm text-secondary mb-3">Allows device-level popups when you receive a new message.</p>
-                    <button id="settings-notification-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 rounded-lg text-sm transition duration-150 flex items-center justify-center space-x-2">
+                    <button id="settings-notification-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 rounded-lg text-sm transition duration-150 flex items-center justify-center space-x-2 shadow-md">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-2.812A2.003 2.003 0 0118 13.001V10c0-2.206-1.554-4.084-3.864-4.636l-.358-.09A2.004 2.004 0 0010 6.636V13a2.003 2.003 0 01-.595 1.189L8 17h7zm-4 4a2 2 0 100-4 2 2 0 000 4z" />
                         </svg>
@@ -173,7 +187,7 @@
             
             <!-- User Search Input / Add DM -->
             <div class="p-3 border-b border-main">
-                <input type="text" id="user-search-input" placeholder="Search/Add user by username..." class="w-full p-2 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-accent transition duration-150 border">
+                <input type="text" id="user-search-input" placeholder="Search/Add user by username..." class="w-full p-2 rounded-lg text-sm transition duration-150">
             </div>
 
             <!-- Search Results for NEW users -->
@@ -190,7 +204,7 @@
             
             <!-- Settings Button (Replaced old buttons) -->
             <div class="p-3 border-t border-main">
-                <button id="open-settings-btn" class="w-full bg-accent hover-bg-accent text-white font-semibold py-2 rounded-lg text-sm transition duration-150 flex items-center justify-center space-x-2">
+                <button id="open-settings-btn" class="w-full bg-accent hover-bg-accent text-white font-semibold py-2 rounded-lg text-sm transition duration-150 flex items-center justify-center space-x-2 shadow-md">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.82 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.82 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.82-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.82-3.31 2.37-2.37a1.724 1.724 0 002.572-1.065z" />
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -214,7 +228,7 @@
             <!-- Message Input Area (Updated for Image) -->
             <div id="message-input-area" class="p-4 border-t border-main hidden">
                 <!-- Image Preview and Cancel Area -->
-                <div id="image-preview-area" class="mb-3 p-3 bg-sidebar rounded-lg hidden">
+                <div id="image-preview-area" class="mb-3 p-3 bg-sidebar rounded-lg shadow-inner hidden">
                     <p class="text-sm font-semibold mb-2 text-secondary">Image Ready to Send:</p>
                     <div class="flex items-center space-x-4">
                         <img id="image-preview" src="" class="max-h-24 w-auto rounded-md object-contain border border-main">
@@ -238,7 +252,7 @@
                     </label>
                     <input type="file" id="image-upload-input" accept="image/*" class="hidden">
                     
-                    <input type="text" id="message-input" placeholder="Type a message or select an image..." class="flex-grow p-3 rounded-full border focus:ring-accent">
+                    <input type="text" id="message-input" placeholder="Type a message or select an image..." class="flex-grow p-3 rounded-full">
                     <button id="send-button" class="bg-accent hover-bg-accent text-white p-3 rounded-full shadow-lg transition duration-150">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7" />
@@ -467,9 +481,9 @@
                 button.style.backgroundColor = theme.colors.bg;
                 button.style.color = isSelected ? '#ffffff' : theme.colors.accent; 
                 button.style.borderColor = theme.colors.accent;
-                button.style.borderWidth = '2px';
+                button.style.borderWidth = isSelected ? '3px' : '2px';
                 
-                button.className = `p-3 rounded-lg text-sm font-semibold transition duration-150 ${isSelected ? 'shadow-xl' : 'hover:opacity-90'}`;
+                button.className = `p-3 rounded-lg text-sm font-semibold transition duration-150 ${isSelected ? 'shadow-xl' : 'hover:opacity-90 shadow-md'}`;
                 button.textContent = theme.name;
                 button.dataset.theme = theme.value;
                 
@@ -846,12 +860,12 @@
                 const isRemoved = currentRecentDMs[foundNewUser.userId] && currentRecentDMs[foundNewUser.userId].removed;
                 
                 searchResultsDiv.innerHTML = `
-                    <div class="flex items-center justify-between p-2 rounded-lg bg-sidebar border border-accent">
+                    <div class="flex items-center justify-between p-2 rounded-lg bg-sidebar border border-accent shadow-md">
                         <div>
                             <p class="font-semibold text-main">${foundNewUser.username}</p>
                             <p class="text-xs text-secondary truncate">ID: ${foundNewUser.userId}</p>
                         </div>
-                        <button class="start-dm-btn bg-accent hover-bg-accent text-white font-semibold py-1 px-3 rounded-lg text-sm transition duration-150 ml-2" data-userid="${foundNewUser.userId}">
+                        <button class="start-dm-btn bg-accent hover-bg-accent text-white font-semibold py-1 px-3 rounded-lg text-sm transition duration-150 ml-2 shadow-sm" data-userid="${foundNewUser.userId}">
                             ${isRemoved ? 'Restore DM' : 'Start DM'}
                         </button>
                     </div>
