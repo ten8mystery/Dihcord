@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dihcord: Private DMs</title>
+    <title>Dihcord: Secure DMs</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Use Inter font -->
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        @import url('https://fonts.fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
             /* Dark Mode Background */
@@ -38,15 +38,16 @@
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <p id="status-message">Connecting to database...</p>
+            <p id="status-message">Connecting to database and loading users...</p>
         </div>
 
         <!-- Profile Setup/Change Modal -->
         <div id="profile-modal" class="hidden absolute inset-0 z-50 flex items-center justify-center bg-gray-900/90 p-4">
             <div class="bg-gray-700 p-8 rounded-xl shadow-2xl w-full max-w-sm">
                 <h2 class="text-xl font-bold mb-4 text-white" id="profile-modal-title">Set Up Your Profile</h2>
-                <p class="text-gray-300 mb-4" id="profile-modal-text">Please choose a unique username to start chatting.</p>
-                <input type="text" id="username-input" placeholder="Enter your username" class="w-full p-3 rounded-lg bg-gray-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150">
+                <p class="text-gray-300 mb-4" id="profile-modal-text">Please choose a **unique** username to start chatting.</p>
+                <input type="text" id="username-input" placeholder="Enter your unique username" class="w-full p-3 rounded-lg bg-gray-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150">
+                <p id="username-error" class="text-red-400 text-sm mt-2 hidden">That username is already taken or invalid.</p>
                 <button id="save-profile-btn" class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-lg shadow-md transition duration-150">
                     Save Profile
                 </button>
@@ -56,18 +57,24 @@
         <!-- Left Sidebar (User List) -->
         <div class="w-1/3 border-r border-gray-700 flex flex-col bg-gray-900">
             <div class="p-4 border-b border-gray-700">
-                <h1 class="text-2xl font-bold text-white">Recent DMs</h1>
+                <h1 class="text-2xl font-bold text-white">Contacts & DMs</h1>
                 <p id="current-user-info" class="text-xs text-gray-400 mt-1"></p>
             </div>
             
-            <!-- User Search Input -->
+            <!-- User Search Input / Add DM -->
             <div class="p-3 border-b border-gray-700">
-                <input type="text" id="user-search-input" placeholder="Search recent DMs..." class="w-full p-2 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition duration-150 text-sm">
+                <input type="text" id="user-search-input" placeholder="Search/Add user by username..." class="w-full p-2 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition duration-150 text-sm">
             </div>
 
-            <!-- User List -->
+            <!-- Search Results for NEW users -->
+            <div id="search-results" class="px-3 pt-2 pb-1 border-b border-gray-700 hidden">
+                <p class="text-xs font-semibold uppercase text-indigo-400 mb-1">Found User</p>
+                <!-- Search result item will be dynamically inserted here -->
+            </div>
+
+
+            <!-- Recent DM User List -->
             <div id="user-list" class="flex-grow overflow-y-auto custom-scrollbar">
-                <!-- User items will be dynamically inserted here -->
                 <p class="text-center text-gray-500 p-4">Start by sending or receiving a message!</p>
             </div>
             
@@ -117,7 +124,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, where, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Set Firebase logging level for debugging
@@ -127,7 +134,6 @@
         // NOTE: The browser environment prevents loading local files like 'sounds/noto.wav'.
         // You MUST replace the link below with a full HTTPS URL to your hosted file.
         const NOTIFICATION_SOUND_URL = "https://cdn.jsdelivr.net/gh/j-m/audio-assets@1.0.0/blop.mp3"; 
-        // Update the audio element source
         document.getElementById('notification-sound').src = NOTIFICATION_SOUND_URL;
 
         // --- GLOBAL VARIABLES (Provided by Environment or Fallback) ---
@@ -162,11 +168,10 @@
         let app, db, auth;
         let currentUserId = null;
         let currentUsername = "Guest";
-        let selectedUser = null; // The user object of the person currently being chatted with
+        let selectedUser = null; 
         
-        // Data stores
         let allUsersMap = new Map(); // All user profiles (key: userId, value: {username, ...})
-        let currentRecentDMs = {}; // Current user's recent DM list { [otherUserId]: { lastMessageTimestamp, removed } }
+        let currentRecentDMs = {}; // Current user's recent DM list 
 
 
         // DOM Elements
@@ -176,6 +181,7 @@
         const profileModalTitle = document.getElementById('profile-modal-title');
         const profileModalText = document.getElementById('profile-modal-text');
         const usernameInput = document.getElementById('username-input');
+        const usernameError = document.getElementById('username-error');
         const saveProfileBtn = document.getElementById('save-profile-btn');
         const userList = document.getElementById('user-list');
         const chatHeader = document.getElementById('chat-header');
@@ -187,6 +193,7 @@
         const userSearchInput = document.getElementById('user-search-input');
         const changeNameBtn = document.getElementById('change-name-btn');
         const notificationSound = document.getElementById('notification-sound');
+        const searchResultsDiv = document.getElementById('search-results');
 
 
         // --- FIRESTORE PATHS ---
@@ -258,7 +265,7 @@
             if (userDoc.exists()) {
                 const userData = userDoc.data();
                 currentUsername = userData.username;
-                currentRecentDMs = userData.recentDMs || {}; // Load recent DMs
+                currentRecentDMs = userData.recentDMs || {};
                 currentUserInfo.textContent = `User ID: ${currentUserId}`;
                 
                 hideLoadingScreen();
@@ -270,31 +277,64 @@
         }
 
         function showProfileModal(isChange) {
+            usernameError.classList.add('hidden'); // Clear any previous error
             if (isChange) {
                 profileModalTitle.textContent = "Change Your Username";
-                profileModalText.textContent = "Enter a new username. It will update immediately for everyone.";
+                profileModalText.innerHTML = "Enter a new **unique** username. It will update immediately for everyone.";
                 usernameInput.value = currentUsername;
             } else {
                 profileModalTitle.textContent = "Set Up Your Profile";
-                profileModalText.textContent = "Please choose a unique username to start chatting.";
+                profileModalText.innerHTML = "Please choose a **unique** username to start chatting.";
                 usernameInput.value = '';
             }
 
             profileModal.classList.remove('hidden');
             usernameInput.focus();
         }
+        
+        /**
+         * Checks if a username is already taken by querying the Firestore 'users' collection.
+         * @param {string} username The username to check.
+         * @param {string} excludeUserId The ID of the user to exclude from the check (the current user).
+         * @returns {Promise<boolean>} True if the username is taken, false otherwise.
+         */
+        async function isUsernameTaken(username, excludeUserId) {
+            if (!db) return true; // Fail safe if DB not initialized
+            const usersRef = getUsersCollectionRef();
+            const usernameQuery = query(usersRef, where('username', '==', username));
+            
+            try {
+                const snapshot = await getDocs(usernameQuery);
+                
+                // If the snapshot has results, check if any belong to a different user
+                return snapshot.docs.some(doc => doc.id !== excludeUserId);
+            } catch (error) {
+                console.error("Error checking username uniqueness:", error);
+                return true; // Assume taken if check fails
+            }
+        }
 
         async function saveProfile() {
             const username = usernameInput.value.trim();
+            usernameError.classList.add('hidden');
+            
             if (username.length < 3) {
-                alertUser("Username must be at least 3 characters long.");
+                usernameError.textContent = "Username must be at least 3 characters long.";
+                usernameError.classList.remove('hidden');
+                return;
+            }
+
+            // Check for uniqueness
+            const isTaken = await isUsernameTaken(username, currentUserId);
+            if (isTaken) {
+                usernameError.textContent = `The username "${username}" is already taken.`;
+                usernameError.classList.remove('hidden');
                 return;
             }
 
             try {
                 const isInitialSetup = profileModal.classList.contains('hidden');
 
-                // Ensure the recentDMs structure is preserved on merge
                 const userDataToSave = {
                     userId: currentUserId,
                     username: username,
@@ -331,14 +371,11 @@
                 if (e.key === 'Enter') { saveProfile(); }
             });
             
-            // Start listening to ALL user profiles (to get names for the list)
             listenToAllUsers();
-            
-            // Start listening to the CURRENT user's profile (to get recentDMs list)
             listenToCurrentUserData();
             
             userSearchInput.addEventListener('input', () => {
-                renderUserList(); 
+                handleSearch(userSearchInput.value.trim()); 
             });
 
             sendButton.addEventListener('click', sendMessage);
@@ -346,35 +383,50 @@
                 if (e.key === 'Enter') { sendMessage(); }
             });
             
-            // Set up event delegation for remove buttons (since they are dynamic)
             userList.addEventListener('click', (e) => {
                 const target = e.target.closest('.remove-user-btn');
                 if (target) {
-                    e.stopPropagation(); // Prevent selecting the user when clicking 'X'
+                    e.stopPropagation(); 
                     const targetUserId = target.getAttribute('data-userid');
                     if (targetUserId) {
                         removeRecentDm(targetUserId);
                     }
                 }
             });
+            
+            // Delegate click listener for the dynamic "Start DM" button
+            searchResultsDiv.addEventListener('click', (e) => {
+                 const target = e.target.closest('.start-dm-btn');
+                 if (target) {
+                     const userId = target.getAttribute('data-userid');
+                     const user = allUsersMap.get(userId);
+                     if (user) {
+                         addUserToDMs(user);
+                     }
+                 }
+            });
         }
         
+        // --- DATA LISTENERS ---
         let unsubscribeAllUsers = null;
         function listenToAllUsers() {
             if (unsubscribeAllUsers) unsubscribeAllUsers();
 
             const usersRef = getUsersCollectionRef();
+            // Listen to all users to populate the map for search functionality
             unsubscribeAllUsers = onSnapshot(usersRef, (snapshot) => {
                 snapshot.docs.forEach(doc => {
                     const userData = doc.data();
-                    // Store all user data in a map for quick lookup
-                    allUsersMap.set(userData.userId, userData);
+                    // Store all user data except the current user
+                    if (userData.userId !== currentUserId) {
+                       allUsersMap.set(userData.userId, userData);
+                    }
                 });
                 
-                // If we have recent DMs, re-render the list immediately
-                if (Object.keys(currentRecentDMs).length > 0) {
-                    renderUserList();
-                }
+                // If there is a search term, re-run search after map update
+                handleSearch(userSearchInput.value.trim());
+                renderUserList();
+
             }, (error) => {
                 console.error("Error listening to all users:", error);
             });
@@ -389,64 +441,126 @@
             unsubscribeCurrentData = onSnapshot(userDocRef, (doc) => {
                 if (doc.exists()) {
                     const userData = doc.data();
-                    // Update currentUsername if it changed via modal
+                    
                     if (currentUsername !== userData.username) {
                         currentUsername = userData.username;
-                        // Force chat header update if needed
                         if (selectedUser) {
                             chatHeader.innerHTML = `<p class="text-lg font-bold text-white">${selectedUser.username}</p><p class="text-xs text-gray-400">ID: ${selectedUser.userId}</p>`;
                         }
                     }
                     
-                    // Update and re-render the recent DM list
                     currentRecentDMs = userData.recentDMs || {};
+                    // Re-render both the list and the search results (in case a user was added/removed)
+                    handleSearch(userSearchInput.value.trim());
                     renderUserList();
                 }
             }, (error) => {
                 console.error("Error listening to current user data:", error);
             });
         }
+
+        // --- SEARCH / ADD DM LOGIC ---
+
+        function handleSearch(searchTerm) {
+            searchResultsDiv.innerHTML = '';
+            
+            if (searchTerm.length < 2) {
+                searchResultsDiv.classList.add('hidden');
+                renderUserList(true); // Re-render all recent DMs
+                return;
+            }
+
+            // 1. Filter recent DMs (existing list functionality)
+            renderUserList(false, searchTerm); 
+
+            // 2. Search all users for ADD DM functionality
+            let foundNewUser = null;
+            
+            for (const [userId, user] of allUsersMap.entries()) {
+                // Ignore users already in the recent list (even if removed, we prioritize the filter search)
+                if (currentRecentDMs[userId] && !currentRecentDMs[userId].removed) continue;
+                
+                // Case-insensitive exact match search (for simplicity, adjust as needed)
+                if (user.username.toLowerCase() === searchTerm.toLowerCase()) {
+                    foundNewUser = user;
+                    break;
+                }
+            }
+
+            // 3. Render new user result
+            if (foundNewUser) {
+                const isRemoved = currentRecentDMs[foundNewUser.userId] && currentRecentDMs[foundNewUser.userId].removed;
+                
+                searchResultsDiv.innerHTML = `
+                    <div class="flex items-center justify-between p-2 rounded-lg bg-gray-800 border border-indigo-600">
+                        <div>
+                            <p class="font-semibold text-white">${foundNewUser.username}</p>
+                            <p class="text-xs text-gray-400 truncate">ID: ${foundNewUser.userId}</p>
+                        </div>
+                        <button class="start-dm-btn bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-1 px-3 rounded-lg text-sm transition duration-150 ml-2" data-userid="${foundNewUser.userId}">
+                            ${isRemoved ? 'Restore DM' : 'Start DM'}
+                        </button>
+                    </div>
+                `;
+                searchResultsDiv.classList.remove('hidden');
+            } else {
+                searchResultsDiv.classList.add('hidden');
+            }
+        }
         
+        /**
+         * Adds a user to the recent DMs list and selects them.
+         */
+        function addUserToDMs(user) {
+            // Immediately mark them as visible in the DMs list and select them
+            updateRecentDmStatus(currentUserId, user.userId, serverTimestamp());
+            selectUser(user);
+            userSearchInput.value = ''; // Clear search
+            searchResultsDiv.classList.add('hidden');
+        }
+
 
         /**
-         * Renders the user list based on recent DMs, filtering by 'removed' status and search term.
+         * Renders the recent DM user list, applying a filter if provided.
+         * @param {boolean} showAll If true, shows the full, un-filtered recent list.
+         * @param {string} filterTerm Filters by username/ID in recent list (only if showAll is false).
          */
-        function renderUserList() {
+        function renderUserList(showAll = true, filterTerm = "") {
             userList.innerHTML = '';
-            const searchTerm = userSearchInput.value.toLowerCase();
             
-            // 1. Convert recentDMs map to an array and filter out 'removed' users
             const recentDmArray = Object.entries(currentRecentDMs)
                 .map(([userId, data]) => ({ userId, ...data }))
-                .filter(dm => !dm.removed);
+                .filter(dm => !dm.removed); // Only show non-removed contacts
             
-            // 2. Sort by last message time (newest first)
             recentDmArray.sort((a, b) => {
                 const timeA = a.lastMessageTimestamp?.seconds || 0;
                 const timeB = b.lastMessageTimestamp?.seconds || 0;
                 return timeB - timeA;
             });
             
-            // 3. Filter by search term
-            const filteredUsers = recentDmArray.filter(dm => {
-                const user = allUsersMap.get(dm.userId);
-                if (!user) return false; // Skip if we don't have the profile yet
-                
-                return user.username.toLowerCase().includes(searchTerm) || dm.userId.toLowerCase().includes(searchTerm);
-            });
+            let filteredUsers = recentDmArray;
+            
+            if (!showAll && filterTerm) {
+                 filteredUsers = recentDmArray.filter(dm => {
+                    const user = allUsersMap.get(dm.userId);
+                    if (!user) return false;
+                    return user.username.toLowerCase().includes(filterTerm.toLowerCase()) || dm.userId.toLowerCase().includes(filterTerm.toLowerCase());
+                });
+            }
 
 
             if (filteredUsers.length === 0) {
-                userList.innerHTML = `<p class="text-center text-gray-500 p-4">No recent messages or users match your search.</p>`;
+                userList.innerHTML = `<p class="text-center text-gray-500 p-4">No recent messages match your search.</p>`;
                 return;
             }
 
             filteredUsers.forEach(dm => {
                 const user = allUsersMap.get(dm.userId);
-                if (!user) return; // Should not happen if allUsersMap is working
+                if (!user) return; 
 
                 const userItem = document.createElement('div');
-                userItem.className = `p-3 cursor-pointer border-b border-gray-700 hover:bg-gray-700 transition duration-150 flex items-center justify-between ${selectedUser && selectedUser.userId === user.userId ? 'bg-indigo-700 hover:bg-indigo-800' : ''}`;
+                userItem.className = `p-3 cursor-pointer border-b border-gray-700 transition duration-150 flex items-center justify-between 
+                                      ${selectedUser && selectedUser.userId === user.userId ? 'bg-indigo-700 hover:bg-indigo-800' : 'hover:bg-gray-700'}`;
                 
                 userItem.innerHTML = `
                     <div class="flex-grow" data-userid="${user.userId}">
@@ -460,27 +574,22 @@
                     </button>
                 `;
                 
-                // Add click listener to the text part (not the button)
                 userItem.querySelector('.flex-grow').onclick = () => selectUser(user);
                 userList.appendChild(userItem);
             });
         }
 
 
-        /**
-         * Marks a user as removed from the current user's recent DMs list.
-         */
         async function removeRecentDm(otherUserId) {
              if (selectedUser && selectedUser.userId === otherUserId) {
-                // Clear chat view if the removed user was currently selected
                 selectedUser = null;
                 chatHeader.innerHTML = `<p class="text-lg font-semibold text-gray-400 italic">Select a user to start chatting</p>`;
                 messageInputArea.classList.add('hidden');
                 messageContainer.innerHTML = '';
+                if (unsubscribeMessages) unsubscribeMessages();
              }
              
              try {
-                // Update the current user's profile to mark the contact as removed
                 const userDocRef = getUserDocRef(currentUserId);
                 const updatePath = `recentDMs.${otherUserId}.removed`;
                 
@@ -489,7 +598,6 @@
                 });
                 
                 alertUser(`User ${allUsersMap.get(otherUserId)?.username || otherUserId} removed from list.`);
-                // The list re-renders automatically via the listenToCurrentUserData snapshot
                 
              } catch (error) {
                  console.error("Error removing DM contact:", error);
@@ -507,16 +615,14 @@
             messageInputArea.classList.remove('hidden');
             messageContainer.innerHTML = '<p class="text-center text-gray-500 italic p-4">Loading messages...</p>';
             
-            renderUserList(); // Re-render the user list to highlight the selected user
+            // Re-run search/render to update highlight
+            handleSearch(userSearchInput.value.trim()); 
             
             listenToMessages(selectedUser.userId);
         }
 
         let unsubscribeMessages = null;
 
-        /**
-         * Listens to real-time updates for messages.
-         */
         function listenToMessages(otherUserId) {
             if (unsubscribeMessages) unsubscribeMessages();
 
@@ -534,15 +640,12 @@
 
                 renderMessages(messages);
                 
-                // 2. Sound Notification & Re-appearance Logic
                 snapshot.docChanges().forEach(change => {
                     if (change.type === "added") {
                         const newMessage = change.doc.data();
                         
-                        // If we receive a message from the other user
                         if (newMessage.senderId === otherUserId) {
                             playSound();
-                            
                             // Re-appearance Logic: Ensure the sender is un-removed in the current user's list
                             updateRecentDmStatus(currentUserId, otherUserId, newMessage.timestamp);
                         }
@@ -555,10 +658,6 @@
             });
         }
 
-        /**
-         * Updates the sender/receiver's recentDMs list to ensure they are visible.
-         * This function handles both sender and receiver updates.
-         */
         async function updateRecentDmStatus(updaterId, targetId, timestamp) {
             try {
                 const docRef = getUserDocRef(updaterId);
@@ -585,7 +684,7 @@
 
             messages.forEach(msg => {
                 const isSender = msg.senderId === currentUserId;
-                const otherUser = selectedUser || allUsersMap.get(msg.receiverId); // Fallback lookup if possible
+                const otherUser = selectedUser || allUsersMap.get(msg.receiverId);
                 
                 const messageDiv = document.createElement('div');
                 messageDiv.className = `flex ${isSender ? 'justify-end' : 'justify-start'}`;
@@ -630,22 +729,22 @@
                     timestamp: serverTimestamp()
                 };
 
+                const writeTime = serverTimestamp();
+                messagePayload.timestamp = writeTime;
+
                 await addDoc(messagesRef, messagePayload);
                 messageInput.value = '';
 
-                // IMPORTANT: Update the recent DMs list for both users (sender and receiver)
-                
                 // 1. Update sender's (current user's) list
-                await updateRecentDmStatus(currentUserId, selectedUser.userId, messagePayload.timestamp);
+                await updateRecentDmStatus(currentUserId, selectedUser.userId, writeTime);
                 
-                // 2. Update receiver's list (using a dedicated function on the server side would be better, but we mimic it here)
-                // Note: The timestamp here will be the local client time, but Firebase will correct it to server timestamp on write.
+                // 2. Update receiver's list
                 const receiverUpdatePromise = updateDoc(getUserDocRef(selectedUser.userId), {
                     [`recentDMs.${currentUserId}`]: {
-                        lastMessageTimestamp: serverTimestamp(),
-                        removed: false // Ensure the sender appears in the receiver's list
+                        lastMessageTimestamp: writeTime,
+                        removed: false
                     }
-                }).catch(e => console.warn("Could not update receiver's DM status. Receiver may not have accepted security rules.", e));
+                }).catch(e => console.warn("Could not update receiver's DM status.", e));
 
             } catch (error) {
                 console.error("Error sending message:", error);
