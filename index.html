@@ -11,20 +11,20 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #1f2937; /* Default body background */
+            background-color: #111827; /* UPDATED: Match new darker theme */
             color: #f3f4f6;
         }
 
         /* --- THEME DEFINITIONS (Uses CSS Variables for Dynamic Styling) --- */
         
-        /* 1. DARK DEFAULT (Applied by default, but explicitly defined here) */
+        /* 1. DARK DEFAULT (NEW: Sleek, High-Contrast) */
         .theme-dark-default {
-            --color-bg-primary: #1f2937; /* Sidebar/Modal */
-            --color-bg-secondary: #374151; /* Chat background */
-            --color-accent: #4f46e5; /* Indigo */
-            --color-text-main: #f3f4f6;
-            --color-text-secondary: #9ca3af;
-            --color-border: #4b5563;
+            --color-bg-primary: #111827; /* Sidebar/Modal (Darker) */
+            --color-bg-secondary: #1f2937; /* Chat background (Lighter) */
+            --color-accent: #3b82f6; /* Brighter Blue */
+            --color-text-main: #f9fafb; /* Brighter White */
+            --color-text-secondary: #9ca3af; /* Standard Gray */
+            --color-border: #374151; /* Lighter Border for contrast */
         }
 
         /* 2. NEBULA THEME */
@@ -49,7 +49,7 @@
 
         /* APPLYING THEMES TO TAILWIND CLASSES */
         #app.theme-dark-default {
-            background-color: #1f2937;
+            background-color: var(--color-bg-primary);
         }
         #app.theme-nebula {
             background-color: var(--color-bg-primary);
@@ -67,7 +67,7 @@
         #app .bg-accent { background-color: var(--color-accent); }
         #app .hover-bg-accent:hover { background-color: var(--color-accent); opacity: 0.9; }
         
-        /* --- ENHANCED OUTLINES AND FOCUS STYLING (The fix from previous request) --- */
+        /* --- ENHANCED OUTLINES AND FOCUS STYLING --- */
         #app input { 
             background-color: var(--color-bg-secondary); 
             color: var(--color-text-main);
@@ -183,7 +183,7 @@
                         <span>Change Username</span>
                     </button>
                     
-                    <!-- Profile Picture Upload (NEW) -->
+                    <!-- Profile Picture Upload -->
                     <label for="profile-pic-input" class="block w-full text-center bg-accent hover-bg-accent text-white font-semibold py-2 rounded-lg text-sm transition duration-150 shadow-md cursor-pointer">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                         <span>Upload New Profile Picture</span>
@@ -361,7 +361,7 @@
         
         // --- THEME OPTIONS (NEW) ---
         const THEMES = [
-            { name: "Dark Default", value: "dark-default", colors: { bg: '#1f2937', accent: '#4f46e5' } },
+            { name: "Dark Default", value: "dark-default", colors: { bg: '#111827', accent: '#3b82f6' } }, // UPDATED
             { name: "Nebula", value: "theme-nebula", colors: { bg: '#17103a', accent: '#e91e63' } },
             { name: "Forest", value: "theme-forest", colors: { bg: '#f3f4f6', accent: '#059669' } },
         ];
@@ -590,7 +590,7 @@
                 renderUserList();
                 if (selectedUser) {
                     // Force re-selection of the user to refresh the chat header's picture
-                    selectUser(selectedUser);
+                    selectUser(selectedUser, true); // Use isUpdate=true to only refresh header
                 }
 
                 alertUser("Profile picture updated successfully!");
