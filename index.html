@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus Chat</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Use Inter font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Deep midnight blue background */
+            background-color: #0c1427;
+            color: #f3f4f6;
+            overflow: hidden;
+        }
+
+        /* Starry Background Animation */
+        #star-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -10;
+        }
+
+        /* Modal backdrop */
+        .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+        }
+
+        /* Modal content animation */
+        .modal-content {
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+        }
+        .modal.hidden .modal-content {
+            transform: scale(0.9);
+            opacity: 0;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <!-- Starry Background Canvas -->
+    <canvas id="star-canvas"></canvas>
+
+    <!-- Main Content -->
+    <main class="text-center z-10">
+        <h1 class="text-6xl md:text-8xl font-black text-white mb-4">
+            Nexus Chat
+        </h1>
+        <p class="text-lg md:text-xl text-indigo-300 mb-10 max-w-lg mx-auto">
+            Your secure, private, and modern-styled connection to the world.
+        </p>
+
+        <!-- Button Container -->
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+            
+            <!-- Launch in Web Button -->
+            <!-- This links to the chat app -->
+            <a href="app.html" 
+               class="px-8 py-4 bg-indigo-600 text-white font-semibold rounded-lg shadow-lg hover:bg-indigo-500 transition-all duration-200 transform hover:scale-105">
+                Launch in Web
+            </a>
+
+            <!-- Download Button -->
+            <button onclick="showModal('downloadModal')"
+                    class="px-8 py-4 bg-green-600 text-white font-semibold rounded-lg shadow-lg hover:bg-green-500 transition-all duration-200 transform hover:scale-105">
+                Download
+            </button>
+
+            <!-- About Button -->
+            <button onclick="showModal('aboutModal')"
+                    class="px-8 py-4 bg-gray-700 text-white font-semibold rounded-lg shadow-lg hover:bg-gray-600 transition-all duration-200 transform hover:scale-105">
+                About
+            </button>
+        </div>
+    </main>
+
+    <!-- ----------------------- -->
+    <!--     MODALS              -->
+    <!-- ----------------------- -->
+
+    <!-- About Modal -->
+    <div id="aboutModal" class="modal hidden fixed inset-0 z-50 flex items-center justify-center p-4 transition-opacity duration-300 modal-backdrop">
+        <div class="modal-content bg-gray-800 w-full max-w-lg rounded-xl shadow-2xl border border-gray-700 p-8 transform opacity-100 scale-100">
+            <h2 class="text-3xl font-bold text-white mb-4">About Nexus Chat</h2>
+            <p class="text-gray-300 mb-6">
+                Nexus Chat is a secure, real-time, peer-to-peer style messaging application designed for privacy. All messages are handled directly, ensuring that your conversations remain yours. This web app uses Firebase for secure user authentication and real-time data synchronization.
+            </p>
+            <button onclick="hideModal('aboutModal')"
+                    class="w-full px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-lg hover:bg-indigo-500 transition-all duration-200">
+                Close
+            </button>
+        </div>
+    </div>
+
+    <!-- Download Modal -->
+    <div id="downloadModal" class="modal hidden fixed inset-0 z-50 flex items-center justify-center p-4 transition-opacity duration-300 modal-backdrop">
+        <div class="modal-content bg-gray-800 w-full max-w-lg rounded-xl shadow-2xl border border-gray-700 p-8 transform opacity-100 scale-100">
+            <h2 class="text-3xl font-bold text-white mb-6">Download Nexus</h2>
+            
+            <div class="space-y-4">
+                <a href="https://www.microsoft.com/store/apps" target="_blank" rel="noopener noreferrer" class="block w-full text-left px-6 py-4 bg-gray-700 text-white font-semibold rounded-lg shadow-lg hover:bg-gray-600 transition-all duration-200">
+                    <span class="text-xl">Windows</span>
+                    <p class="text-sm text-gray-400">Go to Microsoft Store (Opens new tab)</p>
+                </a>
+                <a href="https://play.google.com/store" target="_blank" rel="noopener noreferrer" class="block w-full text-left px-6 py-4 bg-gray-700 text-white font-semibold rounded-lg shadow-lg hover:bg-gray-600 transition-all duration-200">
+                    <span class="text-xl">Android</span>
+                    <p class="text-sm text-gray-400">Go to Google Play Store (Opens new tab)</p>
+                </a>
+            </div>
+
+            <button onclick="hideModal('downloadModal')"
+                    class="w-full mt-8 px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-lg hover:bg-indigo-500 transition-all duration-200">
+                Close
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- Modal Logic ---
+        function showModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.remove('hidden');
+            }
+        }
+
+        function hideModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+        }
+
+        // Close modal if backdrop is clicked
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    hideModal(modal.id);
+                }
+            });
+        });
+
+        // --- Starry Background Logic ---
+        const canvas = document.getElementById('star-canvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        let stars = [];
+        const starCount = 200; // Total number of stars
+
+        for (let i = 0; i < starCount; i++) {
+            stars.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                radius: Math.random() * 1.2, // Star size
+                // velocity - layer 1 (fastest), 2 (medium), 3 (slowest)
+                vx: (Math.random() - 0.5) * (Math.random() * 0.3 + 0.1), 
+                vy: (Math.random() - 0.5) * (Math.random() * 0.3 + 0.1),
+                // Muted colors (darker blues/grays)
+                color: `rgba(${Math.floor(Math.random() * 50 + 100)}, ${Math.floor(Math.random() * 50 + 100)}, ${Math.floor(Math.random() * 50 + 150)}, ${Math.random() * 0.5 + 0.2})`
+            });
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            stars.forEach(star => {
+                star.x += star.vx;
+                star.y += star.vy;
+
+                // Wrap stars around the screen
+                if (star.x < 0) star.x = canvas.width;
+                if (star.x > canvas.width) star.x = 0;
+                if (star.y < 0) star.y = canvas.height;
+                if (star.y > canvas.height) star.y = 0;
+
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+                ctx.fillStyle = star.color;
+                ctx.fill();
+            });
+        }
+
+        animate();
+    </script>
+</body>
+</html>
