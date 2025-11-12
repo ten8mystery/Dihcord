@@ -54,6 +54,10 @@ body {
 <!-- Authentication UI -->
 <div id="auth-screen" class="w-full max-w-md bg-gray-900/90 rounded-xl p-6 shadow-2xl z-10">
     <h1 class="text-3xl font-extrabold text-accent mb-6 text-center">Nexus Chat</h1>
+    <p class="text-center text-sm text-red-400 mb-4">
+        Automatic sign-in failed. Please register a new account or log in below.
+    </p>
+
     <!-- Toggle -->
     <div class="flex mb-6 rounded-xl bg-gray-800/50 p-1 shadow-inner">
         <button id="show-login-btn" class="flex-1 py-2 font-semibold rounded-lg transition duration-200 text-main bg-accent shadow-lg">Login</button>
@@ -128,8 +132,8 @@ body {
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, getDoc, setDoc, collection, addDoc, onSnapshot, serverTimestamp, getDocs, query, orderBy, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, collection, addDoc, onSnapshot, serverTimestamp, query, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     // --- GLOBAL VARIABLES (Provided by Canvas Environment) ---
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -205,7 +209,7 @@ body {
     function showError(message) {
         errorAlert.textContent = message;
         errorAlert.classList.remove('hidden');
-        setTimeout(() => errorAlert.classList.add('hidden'), 4000);
+        setTimeout(() => errorAlert.classList.add('hidden'), 6000); // Extended timeout for visibility
     }
 
     // --- Initialization & Auth Setup ---
@@ -217,16 +221,23 @@ body {
             auth = getAuth(app);
             db = getFirestore(app);
             setLogLevel('error'); 
-
-            // Sign in using custom token or anonymously
+            
+            // 1. Attempt Sign in with Custom Token (if available)
             if (initialAuthToken) {
-                await signInWithCustomToken(auth, initialAuthToken);
-            } else {
-                await signInAnonymously(auth);
+                try {
+                    console.log("Attempting sign in with custom token...");
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } catch (e) {
+                    // If the token fails, we log it and proceed to the onAuthStateChanged listener
+                    // which will find a null user and show the login UI.
+                    console.error("Custom Token Sign-in Failed. Proceeding to Login UI.", e);
+                    showError("Automatic sign-in failed. Please login or register.");
+                }
             }
 
             // Auth state observer: MUST BE CALLED AFTER 'auth' IS INITIALIZED
             onAuthStateChanged(auth, async user => {
+                showLoading(false);
                 if (user) {
                     currentUserId = user.uid;
                     await loadUserProfile(user.uid);
@@ -234,10 +245,7 @@ body {
                     appDiv.classList.remove('hidden');
                     loadUserList(); 
                 } else {
-                    // Only show auth screen if not in the middle of loading/signing in
-                    if (!loadingScreen.classList.contains('hidden')) {
-                        showLoading(false);
-                    }
+                    // User is not logged in (either custom token failed or user logged out)
                     authScreen.classList.remove('hidden');
                     appDiv.classList.add('hidden');
                     // Default to login view
@@ -246,6 +254,7 @@ body {
             });
 
         } catch (e) {
+            showLoading(false);
             showError("Initialization Failed: " + e.message);
         }
     }
@@ -318,7 +327,7 @@ body {
         } else {
             // Fallback for new users
             currentUserProfile = {
-                username: auth.currentUser.email || 'Guest User',
+                username: auth.currentUser.email || 'Authenticated User',
                 profilePicture: ''
             };
         }
@@ -367,6 +376,15 @@ body {
              userListContainer.innerHTML = '<p class="text-center text-gray-500 italic mt-8">No matching users found.</p>';
              return;
         }
+        
+        // Show current user ID at the top (MANDATORY for multi-user apps)
+        const selfDiv = document.createElement('div');
+        selfDiv.className = 'p-3 mb-4 bg-gray-700 rounded-xl shadow-inner border border-accent/50';
+        selfDiv.innerHTML = `<p class="text-sm font-semibold text-accent mb-1">Your User ID:</p>
+                             <p class="text-xs text-secondary break-all">${currentUserId}</p>`;
+        userListContainer.appendChild(selfDiv);
+
+
         users.forEach(user => {
             const div = document.createElement('div');
             div.className = 'p-3 bg-gray-800 rounded-xl cursor-pointer hover:bg-gray-700 transition duration-150 shadow-md';
@@ -421,18 +439,19 @@ body {
         if (unsubscribeMessages) unsubscribeMessages();
         
         // Real-time listener for messages, sorting by timestamp
-        const messagesQuery = query(messagesRef, orderBy('timestamp'));
+        const messagesQuery = query(messagesRef);
         
         unsubscribeMessages = onSnapshot(messagesQuery, snap => {
-            const sortedDocs = snap.docs;
+            // Sort by timestamp in-memory to avoid mandatory index creation
+            const sortedDocs = snap.docs.map(d => d.data()).sort((a, b) => {
+                const timeA = a.timestamp ? a.timestamp.seconds : Infinity;
+                const timeB = b.timestamp ? b.timestamp.seconds : Infinity;
+                return timeA - timeB;
+            });
             renderMessages(sortedDocs, username);
         }, (error) => {
             console.error("Firestore Error in onSnapshot:", error);
-            if (error.message.includes('requires an index')) {
-                showError("Database requires a security index for sorting. Please retry or contact support.");
-            } else {
-                showError("Error receiving messages: " + error.message);
-            }
+            showError("Error receiving messages: " + error.message);
         });
     }
 
@@ -440,8 +459,7 @@ body {
         const container = document.getElementById('message-container');
         container.innerHTML = '';
         
-        docs.forEach(doc => {
-            const msg = doc.data();
+        docs.forEach(msg => {
             const isSender = msg.senderId === currentUserId;
             const bubbleClass = isSender ? 'bg-accent ml-auto rounded-br-none' : 'bg-gray-700 mr-auto rounded-bl-none';
             const profile = isSender ? currentUserProfile : { username: otherUsername, profilePicture: '' };
