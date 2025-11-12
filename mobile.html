@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Nexus: Secure DMs</title>
+<!-- Load Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- Use Inter font -->
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #111827;
+  color: #f3f4f6;
+}
+#particle-canvas {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  z-index: -1;
+}
+/* Theme variables and styles */
+.theme-dark-default { --color-bg-primary: #111827; --color-bg-secondary: #1f2937; --color-accent: #3b82f6; --color-text-main: #f9fafb; --color-text-secondary: #9ca3af; --color-border: #374151; }
+.theme-nebula { --color-bg-primary: #17103a; --color-bg-secondary: #271a5c; --color-accent: #e91e63; --color-text-main: #fce4ec; --color-text-secondary: #b39ddb; --color-border: #4527a0; }
+.theme-forest { --color-bg-primary: #f3f4f6; --color-bg-secondary: #d1fae5; --color-accent: #059669; --color-text-main: #1f2937; --color-text-secondary: #374151; --color-border: #9ca3af; }
+#app.theme-dark-default { background-color: var(--color-bg-primary); }
+#auth-screen { background-color: var(--color-bg-primary); }
+.bg-sidebar { background-color: var(--color-bg-primary); }
+.bg-chat { background-color: var(--color-bg-secondary); }
+.text-main { color: var(--color-text-main); }
+.text-secondary { color: var(--color-text-secondary); }
+.border-main { border-color: var(--color-border); }
+.bg-accent { background-color: var(--color-accent); }
+.hover-bg-accent:hover { background-color: var(--color-accent); opacity: 0.9; }
+input { background-color: var(--color-bg-secondary); color: var(--color-text-main); border: 1px solid var(--color-border); box-shadow: 0 1px 2px rgba(0,0,0,0.1); transition: all 150ms ease-in-out; }
+input:focus { outline: none; border-width: 2px; border-color: var(--color-accent); box-shadow: 0 0 0 3px rgba(59,130,246,0.4); }
+</style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-2">
+
+<!-- Canvas for particle background -->
+<canvas id="particle-canvas"></canvas>
+
+<!-- Auth UI: login/register, stacked for mobile -->
+<div id="auth-screen" class="w-full max-w-md bg-gray-900/50 rounded-xl p-4 shadow-lg z-10 hidden">
+  <h1 class="text-3xl font-extrabold text-accent mb-4 text-center">Dihcord</h1>
+  <!-- Toggle Buttons -->
+  <div class="flex mb-4 rounded-xl bg-gray-800/50 p-1 shadow-inner">
+    <button id="show-login-btn" class="flex-1 py-2 font-semibold rounded-lg transition duration-200 text-main bg-accent shadow-lg">Login</button>
+    <button id="show-register-btn" class="flex-1 py-2 font-semibold rounded-lg transition duration-200 text-secondary hover:text-main">Register</button>
+  </div>
+  <!-- Login Form -->
+  <div id="login-form" class="space-y-4">
+    <h2 class="text-2xl font-bold text-main mb-2 text-center">Welcome Back!</h2>
+    <input type="email" id="login-email" placeholder="Email Address" class="w-full p-3 rounded-lg focus:ring-accent focus:border-accent" />
+    <input type="password" id="login-password" placeholder="Password" class="w-full p-3 rounded-lg focus:ring-accent focus:border-accent" />
+    <p id="login-error" class="text-red-400 text-sm hidden">Error message</p>
+    <button id="login-btn" class="w-full bg-accent hover:bg-accent text-white font-extrabold py-3 rounded-lg shadow-lg transition duration-150">Log In</button>
+  </div>
+  <!-- Register Form -->
+  <div id="register-form" class="space-y-4 hidden">
+    <h2 class="text-2xl font-bold text-main mb-2 text-center">Create Account</h2>
+    <input type="email" id="register-email" placeholder="Email Address" class="w-full p-3 rounded-lg focus:ring-accent focus:border-accent" />
+    <input type="password" id="register-password" placeholder="Password (Min 6 Characters)" class="w-full p-3 rounded-lg focus:ring-accent focus:border-accent" />
+    <p id="register-error" class="text-red-400 text-sm hidden">Error message</p>
+    <button id="register-btn" class="w-full bg-accent hover:bg-accent text-white font-extrabold py-3 rounded-lg shadow-lg transition duration-150">Register</button>
+  </div>
+</div>
+
+<!-- Main App: hidden initially, shown after login -->
+<div id="app" class="w-full max-w-md flex flex-col flex-1 bg-gray-900/50 rounded-xl shadow-lg overflow-hidden hidden">
+
+  <!-- Header: Chat or Select User -->
+  <div id="chat-header" class="p-3 bg-sidebar flex items-center justify-center">
+    <p class="text-secondary italic">Select a user to start chatting</p>
+  </div>
+
+  <!-- Messages -->
+  <div id="message-container" class="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar">
+    <!-- Messages will load here -->
+  </div>
+
+  <!-- Message Input -->
+  <div class="p-3 flex items-center space-x-2 border-t border-main bg-gray-800/50">
+    <!-- Image upload -->
+    <label for="image-upload-input" class="p-2 bg-gray-700 rounded-full cursor-pointer hover:bg-gray-600 transition duration-150">
+      <svg class="h-6 w-6 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+      </svg>
+    </label>
+    <input type="file" id="image-upload-input" accept="image/*" class="hidden" />
+
+    <!-- Text input -->
+    <input id="message-input" type="text" placeholder="Type a message or select an image..." class="flex-1 p-3 rounded-full focus:outline-none focus:ring-2 focus:ring-accent" />
+
+    <!-- Send button -->
+    <button id="send-button" class="p-3 bg-accent rounded-full hover:bg-green-600 transition duration-150">
+      <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14m-7-7l7 7-7 7" />
+      </svg>
+    </button>
+  </div>
+</div>
+
+<!-- Firebase and custom script -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+// rest of your Firebase imports...
+
+// Particle animation setup
+const canvas = document.getElementById('particle-canvas');
+const ctx = canvas.getContext('2d');
+let particles = [], animationFrameId;
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+// Particle class...
+class Particle {
+  constructor() { /* ... */ }
+  update() { /* ... */ }
+  draw() { /* ... */ }
+}
+// Setup particles
+function initParticles() { /* ... */ }
+function animateParticles() { /* ... */ }
+window.addEventListener('resize', () => { resizeCanvas(); initParticles(); });
+startParticleAnimation();
+
+// Firebase init...
+// Your existing Firebase logic...
+
+// Authentication UI logic
+const authScreen = document.getElementById('auth-screen');
+const appContainer = document.getElementById('app');
+
+// Toggle auth forms
+const showLoginBtn = document.getElementById('show-login-btn');
+const showRegisterBtn = document.getElementById('show-register-btn');
+const loginFormEl = document.getElementById('login-form');
+const registerFormEl = document.getElementById('register-form');
+
+function switchAuthForm(to) {
+  if (to === 'login') {
+    loginFormEl.classList.remove('hidden');
+    registerFormEl.classList.add('hidden');
+  } else {
+    loginFormEl.classList.add('hidden');
+    registerFormEl.classList.remove('hidden');
+  }
+}
+
+showLoginBtn.onclick = () => switchAuthForm('login');
+showRegisterBtn.onclick = () => switchAuthForm('register');
+
+// On auth change, show/hide main UI
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+const auth = getAuth();
+
+onAuthStateChanged(auth, user => {
+  if (user) {
+    authScreen.classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+    // Load user profile, setup chat...
+  } else {
+    authScreen.classList.remove('hidden');
+    document.getElementById('app').classList.add('hidden');
+  }
+});
+
+// Login/Register handlers
+document.getElementById('login-btn').onclick = async () => {
+  // handle login...
+};
+document.getElementById('register-btn').onclick = async () => {
+  // handle register...
+};
+
+// Chat message send
+const messageInput = document.getElementById('message-input');
+const sendButton = document.getElementById('send-button');
+sendButton.onclick = () => {
+  // send message...
+};
+
+// Image upload
+document.getElementById('image-upload-input').onchange = (e) => {
+  // handle image preview...
+};
+</script>
+</body>
+</html>
