@@ -8,15 +8,30 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
 body {
-  font-family: 'Inter', sans-serif;
-  background-color: #111827;
-  color: #f3f4f6;
+    font-family: 'Inter', sans-serif;
+    background-color: #111827;
+    color: #f3f4f6;
 }
 #particle-canvas {
-  position: fixed;
-  top: 0; left: 0;
-  width: 100vw; height: 100vh;
-  z-index: -1;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    z-index: -1;
+}
+.text-accent { color: #10b981; } /* emerald-500 */
+.bg-accent { background-color: #10b981; } /* emerald-500 */
+.text-main { color: #f3f4f6; } /* gray-100 */
+.text-secondary { color: #d1d5db; } /* gray-300 */
+.bg-sidebar { background-color: #1f2937; } /* gray-800 */
+.loader {
+    border-color: #10b981;
+    border-top-color: transparent;
+    -webkit-animation: spin 1s linear infinite;
+    animation: spin 1s linear infinite;
+}
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 </style>
 </head>
@@ -27,302 +42,585 @@ body {
 
 <!-- Loading Screen -->
 <div id="loading-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/80 text-white text-xl font-semibold hidden">
-  <div class="flex flex-col items-center">
-    <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
-    <div>Loading...</div>
-  </div>
+    <div class="flex flex-col items-center">
+        <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
+        <div>Initializing Secure Chat...</div>
+    </div>
 </div>
 
 <!-- Error Alert -->
 <div id="error-alert" class="fixed top-4 right-4 z-50 bg-red-500 text-white p-4 rounded-lg shadow-lg hidden"></div>
 
 <!-- Authentication UI -->
-<div id="auth-screen" class="w-full max-w-md bg-gray-900/50 rounded-xl p-4 shadow-lg z-10">
-  <h1 class="text-3xl font-extrabold text-accent mb-4 text-center">Dihcord</h1>
-  <!-- Toggle -->
-  <div class="flex mb-4 rounded-xl bg-gray-800/50 p-1 shadow-inner">
-    <button id="show-login-btn" class="flex-1 py-2 font-semibold rounded-lg transition duration-200 text-main bg-accent shadow-lg">Login</button>
-    <button id="show-register-btn" class="flex-1 py-2 font-semibold rounded-lg transition duration-200 text-secondary hover:text-main">Register</button>
-  </div>
-  <!-- Login Form -->
-  <div id="login-form" class="">
-    <h2 class="text-2xl font-bold mb-2 text-center">Welcome Back!</h2>
-    <input id="login-email" type="email" placeholder="Email" class="w-full p-3 mb-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-black" />
-    <input id="login-password" type="password" placeholder="Password" class="w-full p-3 mb-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-black" />
-    <p id="login-error" class="text-red-400 text-sm hidden">Error message</p>
-    <button id="login-btn" class="w-full bg-accent py-3 rounded-lg text-white font-semibold shadow-lg hover:bg-green-600 transition duration-150">Log In</button>
-  </div>
-  <!-- Register Form -->
-  <div id="register-form" class="hidden">
-    <h2 class="text-2xl font-bold mb-2 text-center">Create Account</h2>
-    <input id="register-email" type="email" placeholder="Email" class="w-full p-3 mb-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-black" />
-    <input id="register-password" type="password" placeholder="Password (min 6)" class="w-full p-3 mb-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-black" />
-    <p id="register-error" class="text-red-400 text-sm hidden">Error message</p>
-    <button id="register-btn" class="w-full bg-accent py-3 rounded-lg text-white font-semibold shadow-lg hover:bg-green-600 transition duration-150">Register</button>
-  </div>
+<div id="auth-screen" class="w-full max-w-md bg-gray-900/90 rounded-xl p-6 shadow-2xl z-10">
+    <h1 class="text-3xl font-extrabold text-accent mb-6 text-center">Nexus Chat</h1>
+    <!-- Toggle -->
+    <div class="flex mb-6 rounded-xl bg-gray-800/50 p-1 shadow-inner">
+        <button id="show-login-btn" class="flex-1 py-2 font-semibold rounded-lg transition duration-200 text-main bg-accent shadow-lg">Login</button>
+        <button id="show-register-btn" class="flex-1 py-2 font-semibold rounded-lg transition duration-200 text-secondary hover:text-main">Register</button>
+    </div>
+    
+    <!-- Login Form -->
+    <div id="login-form" class="">
+        <h2 class="text-xl font-bold mb-4 text-center">Welcome Back!</h2>
+        <input id="login-email" type="email" placeholder="Email" class="w-full p-3 mb-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-gray-900" />
+        <input id="login-password" type="password" placeholder="Password" class="w-full p-3 mb-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-gray-900" />
+        <p id="login-error" class="text-red-400 text-sm hidden mb-3">Error message</p>
+        <button id="login-btn" class="w-full bg-accent py-3 rounded-lg text-white font-semibold shadow-lg hover:bg-emerald-600 transition duration-150">Log In</button>
+    </div>
+    
+    <!-- Register Form -->
+    <div id="register-form" class="hidden">
+        <h2 class="text-xl font-bold mb-4 text-center">Create Account</h2>
+        <input id="register-email" type="email" placeholder="Email" class="w-full p-3 mb-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-gray-900" />
+        <input id="register-password" type="password" placeholder="Password (min 6)" class="w-full p-3 mb-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-gray-900" />
+        <p id="register-error" class="text-red-400 text-sm hidden mb-3">Error message</p>
+        <button id="register-btn" class="w-full bg-accent py-3 rounded-lg text-white font-semibold shadow-lg hover:bg-emerald-600 transition duration-150">Register</button>
+    </div>
 </div>
 
 <!-- Main Chat App -->
-<div id="app" class="hidden flex-1 flex flex-col max-w-md rounded-xl overflow-hidden shadow-lg bg-gray-900/50">
+<div id="app" class="hidden flex flex-col w-full max-w-md h-[90vh] rounded-xl shadow-2xl bg-gray-900/90 z-10">
 
-  <!-- Chat Header -->
-  <div id="chat-header" class="p-3 bg-sidebar flex items-center justify-center">
-    <p class="text-secondary italic">Select a user to start chatting</p>
-  </div>
+    <!-- Chat Header / User List Toggle -->
+    <div id="header-container" class="p-4 bg-sidebar flex items-center justify-between border-b border-gray-700">
+        <div id="chat-header" class="flex items-center space-x-3">
+            <svg id="back-button" class="h-6 w-6 text-secondary cursor-pointer hover:text-white hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            </svg>
+            <p id="header-text" class="text-xl font-semibold text-main">Users</p>
+        </div>
+        <button id="logout-btn" class="text-sm px-3 py-1 bg-red-600 rounded-lg hover:bg-red-700 transition duration-150">Logout</button>
+    </div>
 
-  <!-- Message Container -->
-  <div id="message-container" class="flex-1 overflow-y-auto p-4 space-y-2"></div>
+    <!-- User Search Input -->
+    <div id="search-bar" class="p-4 bg-gray-800/50">
+        <input id="username-search-input" type="text" placeholder="Search users by username..." 
+               class="w-full p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent text-gray-900" />
+    </div>
 
-  <!-- Message Input -->
-  <div class="p-3 flex items-center space-x-2 border-t border-main bg-gray-800/50">
-    <label for="image-upload-input" class="p-2 bg-gray-700 rounded-full cursor-pointer hover:bg-gray-600 transition duration-150">
-      <svg class="h-6 w-6 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-      </svg>
-    </label>
-    <input type="file" id="image-upload-input" accept="image/*" class="hidden" />
+    <!-- User List Container (Initial View) -->
+    <div id="user-list-container" class="flex-1 overflow-y-auto p-4 space-y-2">
+        <p class="text-center text-gray-500 italic">Loading users...</p>
+    </div>
 
-    <input id="message-input" type="text" placeholder="Type message or select image" class="flex-1 p-3 rounded-full focus:outline-none focus:ring-2 focus:ring-accent" />
+    <!-- Message Container (Chat View) -->
+    <div id="message-container" class="flex-1 overflow-y-auto p-4 space-y-2 hidden"></div>
 
-    <button id="send-button" class="p-3 bg-accent rounded-full hover:bg-green-600 transition duration-150">
-      <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14m-7-7l7 7-7 7" />
-      </svg>
-    </button>
-  </div>
+    <!-- Message Input -->
+    <div id="input-area" class="p-3 flex items-center space-x-2 border-t border-gray-700 bg-gray-800/50 hidden">
+        <label for="image-upload-input" class="p-2 bg-gray-700 rounded-full cursor-pointer hover:bg-gray-600 transition duration-150">
+            <svg class="h-6 w-6 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+        </label>
+        <input type="file" id="image-upload-input" accept="image/*" class="hidden" />
+
+        <input id="message-input" type="text" placeholder="Type message or select image" class="flex-1 p-3 rounded-full focus:outline-none focus:ring-2 focus:ring-accent text-gray-900" />
+
+        <button id="send-button" class="p-3 bg-accent rounded-full hover:bg-emerald-600 transition duration-150">
+            <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14m-7-7l7 7-7 7" />
+            </svg>
+        </button>
+    </div>
 </div>
 
 <script type="module">
-  // Utility: show/hide loading
-function showLoading(show) {
-  document.getElementById('loading-screen').classList.toggle('hidden', !show);
-}
-function showError(message) {
-  const alertBox = document.getElementById('error-alert');
-  alertBox.textContent = message;
-  alertBox.classList.remove('hidden');
-  setTimeout(() => alertBox.classList.add('hidden'), 4000);
-}
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, collection, addDoc, onSnapshot, serverTimestamp, getDocs, query, orderBy, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-// Firebase config
-const firebaseConfig = {
-  apiKey: "AIzaSyAeN72Y5DfDR60psO_YkS_H-9PF0bu0QBs",
-  authDomain: "dihbackend.firebaseapp.com",
-  projectId: "dihbackend",
-  storageBucket: "dihbackend.firebasestorage.app",
-  messagingSenderId: "136423198603",
-  appId: "1:136423198603:web:953bcd9ee925b6664ce98e",
-  measurementId: "G-PSGVGZYGTD"
-};
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, collection, addDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    // --- GLOBAL VARIABLES (Provided by Canvas Environment) ---
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth();
-const db = getFirestore();
+    const FALLBACK_FIREBASE_CONFIG = {
+        apiKey: "AIzaSyAeN72Y5DfDR60psO_YkS_H-9PF0bu0QBs",
+        authDomain: "dihbackend.firebaseapp.com",
+        projectId: "dihbackend",
+        storageBucket: "dihbackend.firebasestorage.app",
+        messagingSenderId: "136423198603",
+        appId: "1:136423198603:web:953bcd9ee925b6664ce98e",
+        measurementId: "G-PSGVGZYGTD"
+    };
+    
+    // Use environment config if available, otherwise use the hardcoded fallback
+    const firebaseConfig = typeof __firebase_config !== 'undefined' 
+        ? JSON.parse(__firebase_config) 
+        : FALLBACK_FIREBASE_CONFIG;
+        
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-const authScreen = document.getElementById('auth-screen');
-const appDiv = document.getElementById('app');
+    // --- Firebase Service Instances ---
+    let app, auth, db;
 
-const loginForm = document.getElementById('login-form');
-const registerForm = document.getElementById('register-form');
-const loginEmail = document.getElementById('login-email');
-const loginPassword = document.getElementById('login-password');
-const loginError = document.getElementById('login-error');
-const registerEmail = document.getElementById('register-email');
-const registerPassword = document.getElementById('register-password');
-const registerError = document.getElementById('register-error');
+    // --- State Variables ---
+    let currentUserId = null;
+    let currentUserProfile = null;
+    let selectedUserId = null;
+    let selectedUserUsername = null;
+    let unsubscribeMessages = null;
+    let allUsersCache = []; // Stores the full, unfiltered list of users
 
-document.getElementById('show-login-btn').onclick = () => {
-  loginForm.classList.remove('hidden');
-  registerForm.classList.add('hidden');
-};
-document.getElementById('show-register-btn').onclick = () => {
-  loginForm.classList.add('hidden');
-  registerForm.classList.remove('hidden');
-};
+    // --- DOM Elements ---
+    const loadingScreen = document.getElementById('loading-screen');
+    const errorAlert = document.getElementById('error-alert');
+    const authScreen = document.getElementById('auth-screen');
+    const appDiv = document.getElementById('app');
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    const loginEmail = document.getElementById('login-email');
+    const loginPassword = document.getElementById('login-password');
+    const registerEmail = document.getElementById('register-email');
+    const registerPassword = document.getElementById('register-password');
+    const userListContainer = document.getElementById('user-list-container');
+    const messageContainer = document.getElementById('message-container');
+    const chatHeader = document.getElementById('chat-header');
+    const headerText = document.getElementById('header-text');
+    const backButton = document.getElementById('back-button');
+    const inputArea = document.getElementById('input-area');
+    const messageInput = document.getElementById('message-input');
+    const searchInput = document.getElementById('username-search-input'); // New Search Input
 
-// Auth state observer
-onAuthStateChanged(auth, async user => {
-  showLoading(true);
-  if (user) {
-    await loadUserProfile(user.uid);
-  } else {
-    document.getElementById('loading-screen').classList.add('hidden');
-    authScreen.classList.remove('hidden');
-    appDiv.classList.add('hidden');
-  }
-});
+    // --- Utility Functions ---
 
-// Register
-document.querySelector('#register-btn').onclick = async () => {
-  const email = registerEmail.value.trim();
-  const password = registerPassword.value.trim();
-  try {
-    const cred = await createUserWithEmailAndPassword(auth, email, password);
-    await setDoc(doc(db, 'users', cred.user.uid), {
-      username: 'User' + Math.floor(Math.random() * 1000),
-      email: email,
-      profilePicture: '',
-      recentDMs: {},
-      theme: 'dark-default'
-    });
-  } catch (e) {
-    showError(e.message);
-  }
-};
+    /** Get reference for a public collection (shared among all users) */
+    function getPublicCollectionRef(collectionName) {
+        // Path: /artifacts/{appId}/public/data/{collectionName}
+        return collection(db, 'artifacts', appId, 'public', 'data', collectionName);
+    }
 
-// Login
-document.querySelector('#login-btn').onclick = async () => {
-  const email = loginEmail.value.trim();
-  const password = loginPassword.value.trim();
-  try {
-    await signInWithEmailAndPassword(auth, email, password);
-  } catch (e) {
-    showError(e.message);
-  }
-};
+    /** Get document reference for a public document (e.g., a user's public profile) */
+    function getPublicDocRef(collectionName, docId) {
+        // Path: /artifacts/{appId}/public/data/{collectionName}/{docId}
+        return doc(db, 'artifacts', appId, 'public', 'data', collectionName, docId);
+    }
 
-async function loadUserProfile(uid) {
-  showLoading(true);
-  const userRef = doc(db, 'users', uid);
-  const snap = await getDoc(userRef);
-  if (!snap.exists()) {
-    await setDoc(userRef, {
-      username: 'User' + Math.floor(Math.random() * 1000),
-      email: auth.currentUser.email,
-      profilePicture: '',
-      recentDMs: {},
-      theme: 'dark-default'
-    });
-  }
-  document.getElementById('loading-screen').classList.add('hidden');
-  authScreen.classList.add('hidden');
-  document.getElementById('app').classList.remove('hidden');
-  startChat(uid);
-}
+    /** Utility: show/hide loading */
+    function showLoading(show) {
+        loadingScreen.classList.toggle('hidden', !show);
+    }
 
-let currentUserId = null;
-let currentUserProfile = null;
-let unsubscribeMessages = null;
-let selectedUserId = null;
+    /** Utility: show temporary error alert */
+    function showError(message) {
+        errorAlert.textContent = message;
+        errorAlert.classList.remove('hidden');
+        setTimeout(() => errorAlert.classList.add('hidden'), 4000);
+    }
 
-function startChat(uid) {
-  currentUserId = uid;
-  const userRef = doc(db, 'users', uid);
-  onSnapshot(userRef, async snap => {
-    currentUserProfile = snap.data();
-    loadUserList();
-  });
-}
+    // --- Initialization & Auth Setup ---
 
-async function loadUserList() {
-  showLoading(true);
-  const usersRef = collection(db, 'users');
-  const snap = await getDocs(usersRef);
-  const users = snap.docs
-    .filter(d => d.id !== currentUserId)
-    .map(d => ({ id: d.id, ...d.data() }));
-  renderUserList(users);
-  showLoading(false);
-}
+    async function initFirebase() {
+        showLoading(true);
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+            setLogLevel('error'); 
 
-function renderUserList(users) {
-  const container = document.getElementById('message-container');
-  container.innerHTML = '';
-  users.forEach(user => {
-    const div = document.createElement('div');
-    div.className = 'p-2 bg-gray-800 rounded mb-2 cursor-pointer hover:bg-gray-700';
-    div.innerHTML = `<div class="flex items-center space-x-2">
-      <img src="${user.profilePicture || 'https://placehold.co/40x40/2d3748/ffffff?text=U'}" class="w-8 h-8 rounded-full"/>
-      <div>
-        <p class="text-white font-semibold">${user.username}</p>
-        <p class="text-xs text-gray-400">ID: ${user.id}</p>
-      </div>
-    </div>`;
-    div.onclick = () => startChatWith(user.id);
-    container.appendChild(div);
-  });
-}
+            // Sign in using custom token or anonymously
+            if (initialAuthToken) {
+                await signInWithCustomToken(auth, initialAuthToken);
+            } else {
+                await signInAnonymously(auth);
+            }
 
-async function startChatWith(uid) {
-  selectedUserId = uid;
-  // Load messages
-  const chatId = [currentUserId, uid].sort().join('_');
-  const messagesRef = collection(db, 'chats', chatId, 'messages');
+            // Auth state observer: MUST BE CALLED AFTER 'auth' IS INITIALIZED
+            onAuthStateChanged(auth, async user => {
+                if (user) {
+                    currentUserId = user.uid;
+                    await loadUserProfile(user.uid);
+                    authScreen.classList.add('hidden');
+                    appDiv.classList.remove('hidden');
+                    loadUserList(); 
+                } else {
+                    // Only show auth screen if not in the middle of loading/signing in
+                    if (!loadingScreen.classList.contains('hidden')) {
+                        showLoading(false);
+                    }
+                    authScreen.classList.remove('hidden');
+                    appDiv.classList.add('hidden');
+                    // Default to login view
+                    showForm('login');
+                }
+            });
 
-  if (unsubscribeMessages) unsubscribeMessages();
-  unsubscribeMessages = onSnapshot(messagesRef, snap => {
-    renderMessages(snap.docs);
-  });
+        } catch (e) {
+            showError("Initialization Failed: " + e.message);
+        }
+    }
 
-  // Load user info for header
-  const userRef = doc(db, 'users', uid);
-  const userSnap = await getDoc(userRef);
-  const userData = userSnap.data();
+    // --- Auth UI Toggles ---
 
-  document.getElementById('chat-header').innerHTML = `
-    <img src="${userData.profilePicture || 'https://placehold.co/40x40/2d3748/ffffff?text=U'}" class="w-10 h-10 rounded-full"/>
-    <div>
-      <p class="text-white font-semibold">${userData.username}</p>
-      <p class="text-xs text-gray-400">ID: ${uid}</p>
-    </div>
-  `;
-}
+    document.getElementById('show-login-btn').onclick = () => showForm('login');
+    document.getElementById('show-register-btn').onclick = () => showForm('register');
+    document.getElementById('logout-btn').onclick = () => signOut(auth);
+    backButton.onclick = () => showUserList();
+    searchInput.oninput = (e) => filterAndRenderUsers(e.target.value); // Event listener for search
 
-function renderMessages(docs) {
-  const container = document.getElementById('message-container');
-  container.innerHTML = '';
-  docs.forEach(doc => {
-    const msg = doc.data();
-    const isSender = msg.senderId === currentUserId;
-    const bubbleHTML = `
-      <div class="flex ${isSender ? 'justify-end' : 'justify-start'} items-end space-x-2 mb-2">
-        ${!isSender ? `<img src="${currentUserProfile.profilePicture || 'https://placehold.co/40x40/2d3748/ffffff?text=U'}" class="w-8 h-8 rounded-full"/>` : ''}
-        <div class="${isSender ? 'bg-green-600' : 'bg-gray-700'} p-3 rounded-lg max-w-xs break-words text-white">
-          ${msg.type === 'image' ? `<img src="${msg.imageData}" class="max-w-full h-auto rounded mb-1 border border-gray-500"/>` : `<p>${msg.text}</p>`}
-          <div class="text-xs text-gray-300 mt-1 text-right">${new Date(msg.timestamp.seconds * 1000).toLocaleTimeString()}</div>
-        </div>
-        ${isSender ? `<img src="${currentUserProfile.profilePicture || 'https://placehold.co/40x40/2d3748/ffffff?text=U'}" class="w-8 h-8 rounded-full"/>` : ''}
-      </div>
-    `;
-    container.innerHTML += bubbleHTML;
-  });
-  container.scrollTop = container.scrollHeight;
-}
+    function showForm(type) {
+        if (type === 'login') {
+            loginForm.classList.remove('hidden');
+            registerForm.classList.add('hidden');
+            document.getElementById('show-login-btn').classList.add('bg-accent', 'shadow-lg', 'text-main');
+            document.getElementById('show-register-btn').classList.remove('bg-accent', 'shadow-lg', 'text-main');
+        } else {
+            loginForm.classList.add('hidden');
+            registerForm.classList.remove('hidden');
+            document.getElementById('show-login-btn').classList.remove('bg-accent', 'shadow-lg', 'text-main');
+            document.getElementById('show-register-btn').classList.add('bg-accent', 'shadow-lg', 'text-main');
+        }
+    }
 
-// Send text message
-document.getElementById('send-button').onclick = async () => {
-  const textInput = document.getElementById('message-input');
-  const text = textInput.value.trim();
-  if (!text && !selectedImageData) return;
+    // --- Auth Actions ---
 
-  const chatId = [currentUserId, selectedUserId].sort().join('_');
-  const messagesRef = collection(db, 'chats', chatId, 'messages');
+    document.querySelector('#register-btn').onclick = async () => {
+        const email = registerEmail.value.trim();
+        const password = registerPassword.value.trim();
+        if (password.length < 6) return showError("Password must be at least 6 characters.");
+        showLoading(true);
+        try {
+            const cred = await createUserWithEmailAndPassword(auth, email, password);
+            // Create user profile in the public 'users' collection
+            await setDoc(getPublicDocRef('users', cred.user.uid), {
+                username: 'User_' + Math.floor(Math.random() * 9000 + 1000),
+                email: email,
+                profilePicture: '',
+                theme: 'dark-default'
+            });
+            showLoading(false);
+        } catch (e) {
+            showLoading(false);
+            showError(e.message);
+        }
+    };
 
-  const msgData = {
-    senderId: currentUserId,
-    timestamp: serverTimestamp(),
-    type: 'text',
-    text: text,
-  };
-  await addDoc(messagesRef, msgData);
-  textInput.value = '';
-  selectedImageData = null;
-};
+    document.querySelector('#login-btn').onclick = async () => {
+        const email = loginEmail.value.trim();
+        const password = loginPassword.value.trim();
+        showLoading(true);
+        try {
+            await signInWithEmailAndPassword(auth, email, password);
+            showLoading(false);
+        } catch (e) {
+            showLoading(false);
+            showError(e.message);
+        }
+    };
 
-// Image upload handler
-let selectedImageData = null;
-document.getElementById('image-upload-input').onchange = (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    selectedImageData = reader.result;
-  };
-  reader.readAsDataURL(file);
-};
+    // --- Firestore Profile & User List ---
+
+    async function loadUserProfile(uid) {
+        const userRef = getPublicDocRef('users', uid);
+        const snap = await getDoc(userRef);
+        if (snap.exists()) {
+            currentUserProfile = snap.data();
+        } else {
+            // Fallback for new users
+            currentUserProfile = {
+                username: auth.currentUser.email || 'Guest User',
+                profilePicture: ''
+            };
+        }
+    }
+
+    async function loadUserList() {
+        showLoading(true);
+        const usersRef = getPublicCollectionRef('users');
+        const q = query(usersRef); 
+
+        // Use onSnapshot for real-time updates on the full list of users
+        onSnapshot(q, (snap) => {
+            // 1. Update the cache with all current users (excluding self)
+            allUsersCache = snap.docs
+                .filter(d => d.id !== currentUserId)
+                .map(d => ({ id: d.id, ...d.data() }));
+            
+            // 2. Filter and render based on current search term
+            const searchTerm = searchInput.value.trim();
+            filterAndRenderUsers(searchTerm);
+            showLoading(false);
+
+        }, (error) => {
+            showError("Error loading users: " + error.message);
+            showLoading(false);
+        });
+    }
+
+    /** Filters the global user cache and calls renderUserList. */
+    function filterAndRenderUsers(searchTerm) {
+        let filteredUsers = allUsersCache;
+        
+        if (searchTerm) {
+            const lowerSearchTerm = searchTerm.toLowerCase();
+            filteredUsers = allUsersCache.filter(user => 
+                user.username && user.username.toLowerCase().includes(lowerSearchTerm)
+            );
+        }
+        
+        renderUserList(filteredUsers);
+    }
+
+    function renderUserList(users) {
+        userListContainer.innerHTML = '';
+        if (users.length === 0) {
+             userListContainer.innerHTML = '<p class="text-center text-gray-500 italic mt-8">No matching users found.</p>';
+             return;
+        }
+        users.forEach(user => {
+            const div = document.createElement('div');
+            div.className = 'p-3 bg-gray-800 rounded-xl cursor-pointer hover:bg-gray-700 transition duration-150 shadow-md';
+            div.innerHTML = `<div class="flex items-center space-x-3">
+                <img src="${user.profilePicture || 'https://placehold.co/40x40/1f2937/10b981?text=U'}" class="w-10 h-10 rounded-full object-cover"/>
+                <div>
+                    <p class="text-white font-semibold">${user.username}</p>
+                    <p class="text-xs text-gray-400 break-all">ID: ${user.id}</p>
+                </div>
+            </div>`;
+            div.onclick = () => startChatWith(user.id, user.username);
+            userListContainer.appendChild(div);
+        });
+    }
+
+    // --- Chat Logic ---
+
+    function showUserList() {
+        selectedUserId = null;
+        if (unsubscribeMessages) unsubscribeMessages();
+        
+        // UI cleanup
+        userListContainer.classList.remove('hidden');
+        document.getElementById('search-bar').classList.remove('hidden');
+        messageContainer.classList.add('hidden');
+        inputArea.classList.add('hidden');
+        backButton.classList.add('hidden');
+        headerText.textContent = 'Users';
+        
+        // Rerender list based on current search term if any
+        filterAndRenderUsers(searchInput.value.trim());
+    }
+
+    async function startChatWith(uid, username) {
+        selectedUserId = uid;
+        selectedUserUsername = username;
+
+        // UI transition to chat view
+        userListContainer.classList.add('hidden');
+        document.getElementById('search-bar').classList.add('hidden');
+        messageContainer.classList.remove('hidden');
+        inputArea.classList.remove('hidden');
+        backButton.classList.remove('hidden');
+        messageContainer.innerHTML = ''; // Clear previous messages
+        
+        headerText.innerHTML = `<span class="text-secondary">Chatting with</span> <span class="text-accent">${username}</span>`;
+        
+        // Define Chat ID and message reference (sorted for consistency)
+        const chatId = [currentUserId, uid].sort().join('_');
+        const messagesRef = collection(db, 'artifacts', appId, 'public', 'data', 'chats', chatId, 'messages');
+
+        if (unsubscribeMessages) unsubscribeMessages();
+        
+        // Real-time listener for messages, sorting by timestamp
+        const messagesQuery = query(messagesRef, orderBy('timestamp'));
+        
+        unsubscribeMessages = onSnapshot(messagesQuery, snap => {
+            const sortedDocs = snap.docs;
+            renderMessages(sortedDocs, username);
+        }, (error) => {
+            console.error("Firestore Error in onSnapshot:", error);
+            if (error.message.includes('requires an index')) {
+                showError("Database requires a security index for sorting. Please retry or contact support.");
+            } else {
+                showError("Error receiving messages: " + error.message);
+            }
+        });
+    }
+
+    function renderMessages(docs, otherUsername) {
+        const container = document.getElementById('message-container');
+        container.innerHTML = '';
+        
+        docs.forEach(doc => {
+            const msg = doc.data();
+            const isSender = msg.senderId === currentUserId;
+            const bubbleClass = isSender ? 'bg-accent ml-auto rounded-br-none' : 'bg-gray-700 mr-auto rounded-bl-none';
+            const profile = isSender ? currentUserProfile : { username: otherUsername, profilePicture: '' };
+            
+            const messageTime = msg.timestamp && msg.timestamp.seconds 
+                ? new Date(msg.timestamp.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+                : 'Sending...';
+
+            const messageContent = msg.type === 'image' 
+                ? `<img src="${msg.imageData}" class="max-w-full h-auto rounded mb-1 border border-gray-600"/>` 
+                : `<p class="whitespace-pre-wrap">${msg.text}</p>`;
+
+            const bubbleHTML = `
+                <div class="flex ${isSender ? 'justify-end' : 'justify-start'} items-start space-x-2">
+                    ${!isSender ? `<img src="${profile.profilePicture || 'https://placehold.co/32x32/1f2937/d1d5db?text=U'}" class="w-8 h-8 rounded-full flex-shrink-0 mt-3"/>` : ''}
+                    <div class="flex flex-col max-w-[80%]">
+                        <span class="text-xs text-gray-400 ${isSender ? 'text-right' : 'text-left'}">${isSender ? 'You' : profile.username}</span>
+                        <div class="p-3 ${bubbleClass} rounded-xl text-white shadow-md mt-1">
+                            ${messageContent}
+                            <div class="text-xs text-gray-200 mt-1 text-right">${messageTime}</div>
+                        </div>
+                    </div>
+                    ${isSender ? `<img src="${currentUserProfile.profilePicture || 'https://placehold.co/32x32/1f2937/d1d5db?text=U'}" class="w-8 h-8 rounded-full flex-shrink-0 mt-3"/>` : ''}
+                </div>
+            `;
+            container.innerHTML += bubbleHTML;
+        });
+        container.scrollTop = container.scrollHeight;
+    }
+
+    // --- Send Message Handler ---
+
+    let selectedImageData = null;
+
+    document.getElementById('image-upload-input').onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            selectedImageData = reader.result;
+            // Visually update the input field to show an image is ready
+            messageInput.value = `[Image selected: ${file.name}]`;
+            messageInput.classList.add('italic', 'text-gray-500');
+        };
+        reader.readAsDataURL(file);
+    };
+
+    document.getElementById('send-button').onclick = async () => {
+        const text = messageInput.value.trim();
+
+        // Check if user is in a chat and has content to send
+        if (!selectedUserId) return showError("Please select a user to chat with.");
+        if (!text && !selectedImageData) return;
+        
+        // Block sending if only the image placeholder text is present without image data
+        const isPlaceholderText = text.startsWith('[Image selected:') && !selectedImageData;
+
+        if (isPlaceholderText) return showError("Please select an image or type a message.");
+
+
+        const chatId = [currentUserId, selectedUserId].sort().join('_');
+        const messagesRef = collection(db, 'artifacts', appId, 'public', 'data', 'chats', chatId, 'messages');
+
+        const msgData = {
+            senderId: currentUserId,
+            timestamp: serverTimestamp(),
+            type: selectedImageData ? 'image' : 'text',
+            text: selectedImageData ? '' : text,
+            imageData: selectedImageData || null,
+        };
+
+        try {
+            await addDoc(messagesRef, msgData);
+        } catch (e) {
+            showError("Failed to send message: " + e.message);
+        }
+
+        // Clear input state after sending
+        messageInput.value = '';
+        messageInput.classList.remove('italic', 'text-gray-500');
+        selectedImageData = null;
+        document.getElementById('image-upload-input').value = null; // Clear file input
+    };
+
+    // --- Particle Background (Cosmetic) ---
+
+    function setupParticles() {
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let W = window.innerWidth;
+        let H = window.innerHeight;
+
+        canvas.width = W;
+        canvas.height = H;
+
+        window.onresize = function() {
+            W = window.innerWidth;
+            H = window.innerHeight;
+            canvas.width = W;
+            canvas.height = H;
+        }
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * W;
+                this.y = Math.random() * H;
+                this.r = Math.random() * 1.5 + 0.5; // Radius
+                this.d = Math.random() * 2 + 1; // Density
+                this.vx = Math.random() * 0.5 - 0.25; // X velocity
+                this.vy = Math.random() * 0.5 - 0.25; // Y velocity
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.fillStyle = "rgba(16, 185, 129, 0.4)"; // Tailwind Emerald-500 with opacity
+                ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2, false);
+                ctx.fill();
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // If particle reaches edges, reset or bounce
+                if (this.x < 0 || this.x > W) this.vx *= -1;
+                if (this.y < 0 || this.y > H) this.vy *= -1;
+                
+                this.draw();
+            }
+        }
+
+        function createParticles() {
+            for (let i = 0; i < 50; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        function drawLines() {
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    let p1 = particles[i];
+                    let p2 = particles[j];
+                    let dist = Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+
+                    if (dist < 100) {
+                        ctx.beginPath();
+                        ctx.strokeStyle = `rgba(16, 185, 129, ${1 - (dist / 100)})`;
+                        ctx.lineWidth = 0.5;
+                        ctx.moveTo(p1.x, p1.y);
+                        ctx.lineTo(p2.x, p2.y);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            ctx.clearRect(0, 0, W, H);
+            
+            drawLines();
+            
+            for (let i = 0; i < particles.length; i++) {
+                particles[i].update();
+            }
+        }
+
+        createParticles();
+        animate();
+    }
+
+    // --- Start Application ---
+    window.onload = function() {
+        initFirebase();
+        setupParticles();
+    }
+
 </script>
 </body>
 </html>
