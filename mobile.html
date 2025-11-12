@@ -25,6 +25,17 @@ body {
 <!-- Canvas background -->
 <canvas id="particle-canvas"></canvas>
 
+<!-- Loading Screen -->
+<div id="loading-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/80 text-white text-xl font-semibold hidden">
+  <div class="flex flex-col items-center">
+    <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
+    <div>Loading...</div>
+  </div>
+</div>
+
+<!-- Error Alert -->
+<div id="error-alert" class="fixed top-4 right-4 z-50 bg-red-500 text-white p-4 rounded-lg shadow-lg hidden"></div>
+
 <!-- Authentication UI -->
 <div id="auth-screen" class="w-full max-w-md bg-gray-900/50 rounded-xl p-4 shadow-lg z-10">
   <h1 class="text-3xl font-extrabold text-accent mb-4 text-center">Dihcord</h1>
@@ -81,106 +92,115 @@ body {
   </div>
 </div>
 
-<script>
-  // Initialize Firebase - replace with your config
-  const firebaseConfig = {
-    apiKey: "AIzaSyAeN72Y5DfDR60psO_YkS_H-9PF0bu0QBs",
-    authDomain: "dihbackend.firebaseapp.com",
-    projectId: "dihbackend",
-    storageBucket: "dihbackend.firebasestorage.app",
-    messagingSenderId: "136423198603",
-    appId: "1:136423198603:web:953bcd9ee925b6664ce98e"
-  };
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-  import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, onSnapshot, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+<script type="module">
+  // Show/hide functions for loading and alert
+function showLoading(show) {
+  document.getElementById('loading-screen').classList.toggle('hidden', !show);
+}
+function showError(message) {
+  const alertBox = document.getElementById('error-alert');
+  alertBox.textContent = message;
+  alertBox.classList.remove('hidden');
+  setTimeout(() => alertBox.classList.add('hidden'), 4000);
+}
 
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth();
-  const db = getFirestore();
+// Firebase config
+const firebaseConfig = {
+  apiKey: "AIzaSyAeN72Y5DfDR60psO_YkS_H-9PF0bu0QBs",
+  authDomain: "dihbackend.firebaseapp.com",
+  projectId: "dihbackend",
+  storageBucket: "dihbackend.firebasestorage.app",
+  messagingSenderId: "136423198603",
+  appId: "1:136423198603:web:953bcd9ee925b6664ce98e",
+  measurementId: "G-PSGVGZYGTD"
+};
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, collection, addDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-  const authScreen = document.getElementById('auth-screen');
-  const appDiv = document.getElementById('app');
+const app = initializeApp(firebaseConfig);
+const auth = getAuth();
+const db = getFirestore();
 
-  const loginForm = document.getElementById('login-form');
-  const registerForm = document.getElementById('register-form');
-  const loginEmail = document.getElementById('login-email');
-  const loginPassword = document.getElementById('login-password');
-  const loginError = document.getElementById('login-error');
-  const registerEmail = document.getElementById('register-email');
-  const registerPassword = document.getElementById('register-password');
-  const registerError = document.getElementById('register-error');
+const authScreen = document.getElementById('auth-screen');
+const appDiv = document.getElementById('app');
 
-  // Auth toggle buttons
-  document.getElementById('show-login-btn').onclick = () => {
-    loginForm.classList.remove('hidden');
-    registerForm.classList.add('hidden');
-  };
-  document.getElementById('show-register-btn').onclick = () => {
-    loginForm.classList.add('hidden');
-    registerForm.classList.remove('hidden');
-  };
+const loginForm = document.getElementById('login-form');
+const registerForm = document.getElementById('register-form');
+const loginEmail = document.getElementById('login-email');
+const loginPassword = document.getElementById('login-password');
+const loginError = document.getElementById('login-error');
+const registerEmail = document.getElementById('register-email');
+const registerPassword = document.getElementById('register-password');
+const registerError = document.getElementById('register-error');
 
-  // Firebase auth state listener
-  onAuthStateChanged(auth, async user => {
-    if (user) {
-      authScreen.classList.add('hidden');
-      appDiv.classList.remove('hidden');
-      await loadUserProfile(user.uid);
-    } else {
-      authScreen.classList.remove('hidden');
-      appDiv.classList.add('hidden');
-    }
-  });
+document.getElementById('show-login-btn').onclick = () => {
+  loginForm.classList.remove('hidden');
+  registerForm.classList.add('hidden');
+};
+document.getElementById('show-register-btn').onclick = () => {
+  loginForm.classList.add('hidden');
+  registerForm.classList.remove('hidden');
+};
 
-  // Register
-  document.querySelector('#register-btn').onclick = async () => {
-    const email = registerEmail.value.trim();
-    const password = registerPassword.value.trim();
-    try {
-      const cred = await createUserWithEmailAndPassword(auth, email, password);
-      // Create user profile document
-      await setDoc(doc(db, 'users', cred.user.uid), {
-        username: 'User' + Math.floor(Math.random()*1000),
-        email: email,
-        profilePicture: '', // default or placeholder URL
-        recentDMs: {},
-        theme: 'dark-default',
-      });
-    } catch (e) {
-      registerError.textContent = e.message;
-      registerError.classList.remove('hidden');
-    }
-  };
+// Auth state observer
+onAuthStateChanged(auth, async user => {
+  showLoading(true);
+  if (user) {
+    await loadUserProfile(user.uid);
+  } else {
+    // Show auth UI
+    document.getElementById('loading-screen').classList.add('hidden');
+    authScreen.classList.remove('hidden');
+    appDiv.classList.add('hidden');
+  }
+});
 
-  // Login
-  document.querySelector('#login-btn').onclick = async () => {
-    const email = loginEmail.value.trim();
-    const password = loginPassword.value.trim();
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-    } catch (e) {
-      loginError.textContent = e.message;
-      loginError.classList.remove('hidden');
-    }
-  };
+// Register
+document.querySelector('#register-btn').onclick = async () => {
+  const email = registerEmail.value.trim();
+  const password = registerPassword.value.trim();
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    await setDoc(doc(db, 'users', cred.user.uid), {
+      username: 'User' + Math.floor(Math.random() * 1000),
+      email: email,
+      profilePicture: '',
+      recentDMs: {},
+      theme: 'dark-default'
+    });
+  } catch (e) {
+    showError(e.message);
+  }
+};
 
-  // Load user profile and initialize chat
+// Login
+document.querySelector('#login-btn').onclick = async () => {
+  const email = loginEmail.value.trim();
+  const password = loginPassword.value.trim();
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+  } catch (e) {
+    showError(e.message);
+  }
+};
+
 async function loadUserProfile(uid) {
+  showLoading(true);
   const userRef = doc(db, 'users', uid);
-  const userSnap = await getDoc(userRef);
-  if (!userSnap.exists()) {
-    // Create profile if not exists
+  const snap = await getDoc(userRef);
+  if (!snap.exists()) {
     await setDoc(userRef, {
-      username: 'User' + Math.floor(Math.random()*1000),
+      username: 'User' + Math.floor(Math.random() * 1000),
       email: auth.currentUser.email,
       profilePicture: '',
       recentDMs: {},
       theme: 'dark-default'
     });
   }
-  // Show chat UI
-  document.getElementById('auth-screen').classList.add('hidden');
+  // Hide auth UI
+  document.getElementById('loading-screen').classList.add('hidden');
+  authScreen.classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   startChat(uid);
 }
@@ -195,18 +215,19 @@ function startChat(uid) {
   const userRef = doc(db, 'users', uid);
   onSnapshot(userRef, async snap => {
     currentUserProfile = snap.data();
-    // Load user list
     loadUserList();
   });
 }
 
 async function loadUserList() {
+  showLoading(true);
   const usersRef = collection(db, 'users');
   const snap = await getDocs(usersRef);
   const users = snap.docs
     .filter(d => d.id !== currentUserId)
     .map(d => ({ id: d.id, ...d.data() }));
   renderUserList(users);
+  showLoading(false);
 }
 
 function renderUserList(users) {
@@ -238,12 +259,11 @@ async function startChatWith(uid) {
     renderMessages(snap.docs);
   });
 
-  // Load user info
+  // Load user info for header
   const userRef = doc(db, 'users', uid);
   const userSnap = await getDoc(userRef);
   const userData = userSnap.data();
 
-  // Render header
   document.getElementById('chat-header').innerHTML = `
     <img src="${userData.profilePicture || 'https://placehold.co/40x40/2d3748/ffffff?text=U'}" class="w-10 h-10 rounded-full"/>
     <div>
@@ -276,24 +296,26 @@ function renderMessages(docs) {
 
 // Send message
 document.getElementById('send-button').onclick = async () => {
-  const text = document.getElementById('message-input').value.trim();
+  const textInput = document.getElementById('message-input');
+  const text = textInput.value.trim();
   if (!text && !selectedImageData) return;
+
   const chatId = [currentUserId, selectedUserId].sort().join('_');
   const messagesRef = collection(db, 'chats', chatId, 'messages');
 
-  const messageData = {
+  const msgData = {
     senderId: currentUserId,
     timestamp: serverTimestamp(),
     type: 'text',
     text: text,
   };
 
-  await addDoc(messagesRef, messageData);
-  document.getElementById('message-input').value = '';
+  await addDoc(messagesRef, msgData);
+  textInput.value = '';
   selectedImageData = null;
 };
 
-// Image upload
+// Image upload handler
 let selectedImageData = null;
 document.getElementById('image-upload-input').onchange = (e) => {
   const file = e.target.files[0];
@@ -301,7 +323,6 @@ document.getElementById('image-upload-input').onchange = (e) => {
   const reader = new FileReader();
   reader.onload = () => {
     selectedImageData = reader.result;
-    // Optional: Show preview
   };
   reader.readAsDataURL(file);
 };
